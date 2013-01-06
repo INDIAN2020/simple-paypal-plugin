@@ -1,0 +1,129 @@
+/*
+Plugin Name: PayPal Plugin
+Plugin URI: http://p-2.biz/plugins/paypal
+Description: A plugin to enable PayPal purchases on a wordpress site
+Version: 0.9
+Author: Peter Edwards <Peter.Edwards@p-2.biz>
+Author URI: http://p-2.biz
+License: GPL2
+*/
+
+/* styles for admin pages */
+.left-column {
+	float:left;
+	width:60%;}
+.right-column {
+	float:right;
+	width:39%;}
+/* paypal options */
+.paypal-options p {
+ 	clear:both;
+ 	padding:0.5em 0;}
+.paypal-options label {
+	float:left;
+	width:25%;
+	text-align:right;
+	padding:0 2.5%;}
+.paypal-options input {
+	float:left;}
+
+/* styles for front-end */
+table.cart {
+  width:70%;}
+table.cart td, table.cart th {
+  padding:3px 4px;
+  border-collapse:collapse;
+  border-top:1px solid #f60;}
+table.cart .subtotal td, table.cart .total td, table.cart td.subtotal {
+  font-weight:bold;
+  text-align:right;}
+.pp-button, .pp-small-button {
+  text-indent:-100000px;
+  border:0;
+  margin:2px 5px 0 5px;}
+.pp-button {
+  width:25px;
+  height:25px;}
+.pp-small-button {
+  width:14px;
+  height:14px;}
+.paypal-price {
+  font-weight:bold;
+  width:70%;
+  float:left;}
+.pp-add-form {
+  width:29%;
+  float:left;}
+p.stocklevel {
+  clear:both;}
+p.stocklevel .num {
+  font-weight:bold;}
+
+/* buttons */
+.pp-button, .pp-small-button {
+  text-indent:-100000px;
+  border:0;
+  margin:2px 5px 0 5px;}
+.pp-button {
+  width:25px;
+  height:25px;}
+.pp-small-button {
+  width:14px;
+  height:14px;}
+
+.pp-enquiry-button {
+  background:transparent url(../img/buttons/enquiry-out.png) no-repeat 0 0;}
+.pp-enquiry-button:hover {
+  background:transparent url(../img/buttons/enquiry-over.png) no-repeat 0 0;}
+.pp-add-button {
+  background:transparent url(../img/buttons/add-out.png) no-repeat 0 0;}
+.pp-add-button:hover {
+  background:transparent url(../img/buttons/add-over.png) no-repeat 0 0;}
+.pp-basket-button {
+  background:transparent url(../img/buttons/basket-out.png) no-repeat 0 0;}
+.pp-basket-button:hover {
+  background:transparent url(../img/buttons/basket-over.png) no-repeat 0 0;}
+.pp-checkout-button {
+  background:transparent url(../img/buttons/checkout-out.png) no-repeat 0 0;}
+.pp-checkout-button:hover {
+  background:transparent url(../img/buttons/checkout-over.png) no-repeat 0 0;}
+.pp-decrease-button {
+  background:transparent url(../img/buttons/small-minus-out.png) no-repeat 0 0;}
+.pp-decrease-button:hover {
+  background:transparent url(../img/buttons/small-minus-over.png) no-repeat 0 0;}
+.pp-decrease-button-disabled {
+  background:transparent url(../img/buttons/small-minus-disabled.png) no-repeat 0 0;}
+.pp-increase-button {
+  background:transparent url(../img/buttons/small-plus-out.png) no-repeat 0 0;}
+.pp-increase-button:hover {
+  background:transparent url(../img/buttons/small-plus-over.png) no-repeat 0 0;}
+.pp-increase-button-disabled {
+  background:transparent url(../img/buttons/small-plus-disabled.png) no-repeat 0 0;}
+.pp-remove-button {
+  background:transparent url(../img/buttons/small-remove-out.png) no-repeat 0 0;}
+.pp-remove-button:hover {
+  background:transparent url(../img/buttons/small-remove-over.png) no-repeat 0 0;}
+
+
+/* product enquiry form */
+.pp-enquiry-form-wrap {
+  width:300px;
+  position:relative;}
+.pp-enquiry-form label {
+  width:80px;
+  float:left;}
+.pp-enquiry-form input, .pp-enquiry-form textarea {
+  padding:3px;
+  border:1px solid #ccc;
+  -moz-border-radius:3px;
+  -webkit-border-radius:3px;
+  -khtml-border-radius:3px;
+  border-radius:3px;}
+.pp-enquiry-form input {
+  width:200px;}
+.pp-enquiry-form textarea {
+  width:280px;}
+.pp-enquiry-form input.submit {
+  margin-left:85px;}
+
+
