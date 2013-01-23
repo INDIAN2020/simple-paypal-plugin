@@ -1,0 +1,76 @@
+/*
+Plugin Name: PayPal Plugin
+Plugin URI: http://p-2.biz/plugins/paypal
+Description: A plugin to enable PayPal purchases on a wordpress site
+Version: 0.9
+Author: Peter Edwards <Peter.Edwards@p-2.biz>
+Author URI: http://p-2.biz
+License: GPL2
+*/
+
+/* styles for admin pages */
+.left-column {
+	float:left;
+	width:60%;}
+.right-column {
+	float:right;
+	width:39%;}
+/* paypal options */
+.paypal-options p {
+ 	clear:both;
+ 	padding:0.5em 0;}
+.paypal-options label {
+	float:left;
+	width:25%;
+	text-align:right;
+	padding:0 2.5%;}
+.paypal-options input {
+	float:left;}
+
+#shipping-settings fieldset {
+	border:1px solid #ccc;
+	margin-bottom:1em;
+	-webkit-border-radius:5px;
+	-khtml-border-radius:5px;
+	-moz-border-radius:5px;
+	border-radius:5px;
+	padding:5px;
+	clear:both;
+	background-color:#eee;
+    background-image: -moz-linear-gradient(top, #e8e8e8, #efefef);
+    background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#e8e8e8), to(#efefef));
+    background-image: -webkit-linear-gradient(top, #e8e8e8, #efefef);
+    background-image: -o-linear-gradient(top, #e8e8e8, #efefef);
+    background-image: linear-gradient(to bottom, #e8e8e8, #efefef);
+    background-repeat: repeat-x;
+    filter:"progid:DXImageTransform.Microsoft.gradient(startColorstr='#E8E8E8', endColorstr='#EFEFEF', GradientType=0)";
+}
+#shipping-settings fieldset fieldset {
+	margin-bottom:0;
+}
+#shipping-settings fieldset legend {
+	font-style:italic;
+}
+#shipping-settings p {
+	clear:both;
+	padding:3px 0;
+}
+#shipping-settings p label {
+	float:left;
+	width:20%;
+	margin-right:3%;
+	text-align:right;
+}
+#shipping-settings p label.wide {
+	width:100%;
+	text-align:left;
+	float:left;
+}
+#shipping-settings p input[type=text] {
+	float:left;
+}
+#shipping-settings p input[type=radio] {
+	float:left;
+	width:23%;
+	text-align:right;
+}

@@ -8,25 +8,6 @@ Author URI: http://p-2.biz
 License: GPL2
 */
 
-/* styles for admin pages */
-.left-column {
-	float:left;
-	width:60%;}
-.right-column {
-	float:right;
-	width:39%;}
-/* paypal options */
-.paypal-options p {
- 	clear:both;
- 	padding:0.5em 0;}
-.paypal-options label {
-	float:left;
-	width:25%;
-	text-align:right;
-	padding:0 2.5%;}
-.paypal-options input {
-	float:left;}
-
 /* styles for front-end */
 table.cart {
   width:70%;}
