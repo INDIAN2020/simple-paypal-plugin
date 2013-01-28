@@ -544,17 +544,60 @@ class PayPalPlugin
 		if (isset($_REQUEST['action']) && $_REQUEST["action"] == "enquiryform") {
 			return self::process_enquiry_form_post();
 		}
+		/* fields for item delivery address  */
+		$address_fields = array(
+			'name' => 'Name',
+			'address1' => 'Address',
+			'address2' => '&nbsp;',
+			'address3' => '&nbsp;',
+			'address4' => '&nbsp;',
+			'country' => 'Country',
+			'postcode' => 'Postcode/Zip'
+		);
+		$countries = self::get_countries();
+		/**
+		 * shipping data is set in the session
+		 */
+		if (!isset($_SESSION["shipping_data"])) {
+			$_SESSION["shipping_data"] = array("total_weight" => 0, "bands" => array(), "errors" => array());
+		}
+		/* see if we are coming from the delivery address form */
+		if (isset($_REQUEST['delivery_change'])) {
+			/* change of delivery method */
+			if (isset($_REQUEST["change_delivery_method_pickup"])) {
+				$_SESSION["shipping_data"]["delivery_method"] = "pickup"; 
+			}
+			if (isset($_REQUEST["change_delivery_method_post"])) {
+				$_SESSION["shipping_data"]["delivery_method"] = "post"; 
+			}
+			/* delivery address */
+			if (isset($_REQUEST["save_delivery_address"]) || isset($_REQUEST["change_delivery_address"])) {
+				/* validate form values */
+				foreach (array("name", "address1", "postcode") as $req) {
+					if (!isset($_REQUEST["delivery_" . $req]) || trim($_REQUEST["delivery_" . $req]) == "") {
+						$_SESSION["shipping_data"]["errors"][$req] = true;
+					} else {
+						@unset($_SESSION["shipping_data"]["errors"][$req]);
+					}
+				}
+				if (!isset($_REQUEST["delivery_country"]) || !isset($countries[$_REQUEST["delivery_country"]]) {
+					$_SESSION["shipping_data"]["errors"]["country"] = true;
+				} else {
+					@unset($_SESSION["shipping_data"]["errors"]["country"]);
+				}
+			}
+		}
+		$_SESSION["shipping_data"] = $shipping_data;
+		/* initialise variables to store output and track totals */
 		$out = "";
 		$total_items = 0;
 		$total_price = 0;
 		$masterForm = '';
-		$item_total_shipping = 0;
 		$total_vat = 0;
 		$total_ex_vat = 0;
 		if (isset($_SESSION['pp-cart']) && is_array($_SESSION['pp-cart']) && count($_SESSION['pp-cart'])) {   
 			$out .= "  <table class=\"cart\">\n";	
 			$out .= "	<tr><th width=\"5%\"></th><th width=\"60%\" style=\"text-align:left\">item</th><th width=\"15%\" style=\"text-align:right\">quantity</th><th width=\"20%\" style=\"text-align:right\">price</th></tr>\n";
-			$include_base_shipping = false;
 			$item_price_ex_vat = array();
 			$item_has_more_stock = array();
   			foreach ($_SESSION['pp-cart'] as $item) {
@@ -571,14 +614,18 @@ class PayPalPlugin
 				$item_has_more_stock["p" . $item["product_page_id"]] = ($item["quantity"] < $paypal["stock"]);
 				/* get all totals and shipping */
 				$total_price += $item['price'] * $item['quantity'];
-				/* if an individual item doesn't have its own shipping amount, use  global shipping preferences */
-				if ((!isset($item["shipping"]) || self::dec2($item["shipping"]) == 0) && $options["use_global_shipping"]) {
-					$item["shipping"] = $options["item_shipping"];
-					$include_base_shipping = true;
-				} else {
-					$item["shipping"] = self::dec2($item["shipping"]);
+				/* add to weight total if weight is used to determine shipping cost */
+				if ($options["shipping_method"] == "weights" && isset($item["shipping_weight"]) && intval($item["shipping_weight"]) > 0) {
+					$shipping_data["total_weight"] += intval($item["shipping_weight"]);
 				}
-				$item_total_shipping += $item['shipping'] * $item['quantity'];
+				/* add item's band if shipping is done through postage bands */
+				if ($options["shipping_method"] == "bands" && isset($item["shipping_band"]) && trim($item["shipping_band"]) != '') {
+					if (isset($shipping_data["bands"][trim($item["shipping_band"])])) {
+						$shipping_data["bands"][trim($item["shipping_band"])] += $item["quantity"];
+					} else {
+						$shipping_data["bands"][trim($item["shipping_band"])] = $item["quantity"];
+					}
+				}
 				$total_items +=  $item['quantity'];
 				/* calculate VAT totals */
 				if ($item["includes_vat"]) {
@@ -614,27 +661,64 @@ class PayPalPlugin
 				$masterForm .= sprintf("<input type=\"hidden\" name=\"item_name_%s\" value=\"%s\" /><input type=\"hidden\" name=\"item_number_%s\" value=\"%s\" /><input type=\"hidden\" name=\"amount_%s\" value=\"%s\" /><input type=\"hidden\" name=\"quantity_%s\" value=\"%s\" /><input type=\"hidden\" name=\"code_%s\" value=\"%s\" />", $count, $item["name"], $count, $item["product_page_id"], $count, $item["price"], $count, $item["quantity"], $count, $item["code"]);
 				$count++;
 			}
-			/* add the base shipping amount if we need to */
-			if ($include_base_shipping && $options["use_global_shipping"]) {
-				$postage_cost = $item_total_shipping + $options["base_shipping"];
-			} else {
-				$postage_cost = $item_total_shipping;
-			}
 			if ($total_vat > 0) {
 				$out .= sprintf('	<tr class="subtotal"><td colspan="3">VAT:</td><td colspan="2">&pound;%.2f</td></tr>', $total_vat);
 			}
 			$out .= sprintf('	<tr class="subtotal"><td colspan="3">Subtotal:</td><td colspan="2">&pound;%.2f</td></tr>', ($total_ex_vat + $total_vat));
-			if (isset($options["allow_pickup"]) && $options["allow_pickup"]) {
-				$pickup_fmt = '<form method="post" action="' . $options["cart_url"] . '" style="display:inline"><input type="hidden" name="pp-pickup" value="%s" />%s <input type="submit" class="pp-pickup_button" value="%s" /></form>';
+			/* output a form to allow changes in shipping information */
+			$shipping_form = sprintf('<form method="post" action="%s" method="post"><input type="hidden" name="delivery_change" value="1" />', $options["cart_url"]);
+			/* the delivery method is set once the cart page has been submitted */
+			if (isset($shipping_data["delivery_method"])) {
+				$shipping_form .= sprintf('<input type="hidden" name="delivery_method" value="%s" />', $shipping_data["delivery_method"]);
+				if ($shipping_data["delivery_method"] == "pickup") {
+					$shipping_form .= '<p>You are picking these items up in person <input type="submit" name="change_delivery_method_post" value="Have them posted instead" class="pp-button" /></p>';
+					$shipping_form .= $options["pickup_address"];
+				} else {
+					$shipping_form .= '<p>These items will be delivered to:</p>';
+					$address = array();
+					foreach(array_keys($address_fields) as $field) {
+						if (isset($shipping_data["delivery_" . $field]) && trim($shipping_data["delivery_" . $field]) != "") {
+							if ($field == "country") {
+								$address[] = self::get_country_name($country);
+							}
+							$address[] = trim($shipping_data["delivery_" . $field]);
+							/* add paypal address input hidden fields here */
+						}
+					}
+					$shipping_form .= '<p>' . implode(", ", $address) . '</p>';
+					$shipping_form .= '<p><input type="submit" name="change_delivery_address" value="change this address" class="pp-button" /><input type="submit" name="change_delivery_method_pickup" value="Pick these items up in person instead" class="pp-button" /></p>';
+				}
+			} else {
+				$shipping_form .= '<p>Please input your name and delivery address:</p>';
+				foreach ($address_fields as $name => $label) {
+					$value = isset($shipping_data["delivery_" . $name])? trim($shipping_data["delivery_" . $name]): '';
+					if ($name == 'country') {
+						$sel = ($value == '')? ' selected="selected"': '';
+						$shipping_form .= sprintf('<p class="address-input"><label for="delivery_country">Country</label><select name="delivery_country" id="delivery_country"><option value="select"%s>Please select a country</option>', $sel);
+						foreach ($countries as $code => $name) {
+							$sel = ($value == $code)? ' selected="selected"': '';
+							$shipping_form .= sprintf('<option value="%s"%s>%s</option>', $code, $sel, $name);
+						}
+						$shipping_form .= '</select></p>';
+					} else {
+						$shipping_form .= sprintf('<p class="address-input"><label for="delivery_%s"></label><input type="text" name-"delivery_%s" class="pp-input" id="delivery_%s" value="%s" /></p>', $name, $name, $name, $value);
+					}
+				}
+				$shipping_form .= '<p class="address-input address-input-button"><input type="submit" name="save_delivery_address" value="Save this address" /></p>';
+			}
+			if (isset($shipping_data["delivery_method"])) {
+				$postage_cost = self::calculate_shipping($shipping_data);
+				$out .= sprintf('	<tr class="subtotal"><td colspan="3">Shipping:</td><td colspan="2">&pound;%.2f</td></tr>', $postage_cost);
+
+				$pickup_fmt = ;
 				if (isset($_SESSION["user_pickup"]) && $_SESSION["user_pickup"]) {
-					$pickup_form = sprintf($pickup_fmt, 0, "You are picking these items up in person", "cancel");
+					$pickup_form = sprintf($pickup_fmt, 0, "", "cancel");
 					$postage_cost = 0;
 				} else {
 					$pickup_form = sprintf($pickup_fmt, 1, "To pick your items up in person, ", "click here");
 				}
 				$out .= sprintf('	<tr><td colspan="2">%s</td><td class="subtotal">Shipping:</td><td colspan="2" class="subtotal">&pound;%.2f</td></tr>', $pickup_form, $postage_cost);
 			} else {
-				$out .= sprintf('	<tr class="subtotal"><td colspan="3">Shipping:</td><td colspan="2">&pound;%.2f</td></tr>', $postage_cost);
 			}
 			$masterForm .= sprintf('<input type="hidden" name="shipping_1" value="%s" /><input type="hidden" name="return" value="%s" /><input type="hidden" name="notify_url" value="%s" />', $postage_cost, $options["cart_url"], $options["cart_url"]);  
 			$out .= sprintf('	<tr class="total"><td colspan="3">Total:</td><td colspan="2">&pound;%.2f</td></tr>', ($total_price + $postage_cost));
@@ -660,6 +744,21 @@ class PayPalPlugin
 			$ret["price"] = self::dec2($price);
 		}
 		return $ret;
+	}
+
+	/**
+	 * helper function to calculate total shipping cost
+	 */
+	private static function calculate_shipping($data)
+	{
+		$options = self::get_paypal_options();
+		if ($options["shipping_method"] == "bands") {
+
+		} elseif ($options["shipping_method"] == "weights") {
+
+		} else {
+			return 0;
+		}
 	}
 
 	/**
@@ -746,10 +845,10 @@ class PayPalPlugin
 			}
 			switch ($options["shipping_method"]) {
 				case "bands":
-					$paypal["shipping_band"] = $_REQUEST["paypal_shipping_band"];
+					$paypal["shipping_band"] = isset($_REQUEST["shipping_band"])? $_REQUEST["shipping_band"]: '';
 					break;
 				case "weights":
-					$paypal["weight"] = $_REQUEST["paypal_weight"];
+					$paypal["shipping_weight"] = isset($_REQUEST["shipping_weight"])? $_REQUEST["shipping_weight"]: '';
 					break;
 			}
 			$paypal["stock"] = trim($_REQUEST['paypal_stock']);
@@ -776,11 +875,15 @@ class PayPalPlugin
 		echo '<p><input type="checkbox" id="includes_vat" name="includes_vat" value="1"' . $chckd . ' /><label for="includes_vat">Check this box if the price includes VAT (otherwise a zero rate of VAT is assumed)</label></p>';
 		echo '</div>';
 		/* right column */
+		echo '<div class="right-column">';
 		if (isset($options["shipping_method"]) && $options["shipping_method"] == "weights") {
-			echo '<div class="right-column"><p><label for="paypal_weight">Weight (g): </label><input type="text" id="paypal_weight" name="paypal_weight" value="' . $paypal["weight"] . '" size="5" /></p>';
+			if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["weights"]) || !count($options["shipping_settings"]["weights"])) {
+				printf('<p><a href="%s">Please configure weight ranges on the paypal plugin options page</a></p>', admin_url('options-general.php?page=paypal_options'));
+			}
+			echo '<p><label for="shipping_weight">Weight: </label><input type="text" id="shipping_weight" name="shipping_weight" value="' . $paypal["weight"] . '" size="5" />g</p>';
 		} else {
 			if (isset($options["shipping_settings"]) && isset($options["shipping_settings"]["bands"]) && count($options["shipping_settings"]["bands"])) {
-				echo '<p><label for="paypal_shipping_band">Postage band:</label><select name="paypal_shipping_band" id="paypal_shipping_band">';
+				echo '<p><label for="shipping_band">Postage band:</label><select name="shipping_band" id="shipping_band">';
 				foreach ($options["shipping_settings"]["bands"] as $band) {
 					$sel = (isset($paypal["shipping_band"]) && $paypal["shipping_band"] == $band["name"])? ' selected="selected"': '';
 					printf('<option value="%s"%s>%s</option>', $band["name"], $sel, $band["name"]);
@@ -824,7 +927,8 @@ class PayPalPlugin
 			"description" => "",
 			"weight" => "",
 			"price" => "",
-			"shipping" => "",
+			"shipping_band" => "",
+			"shipping_weight" => "",
 			"stock" => "",
 			"includes_vat" => true
 		);
@@ -833,6 +937,33 @@ class PayPalPlugin
 			return wp_parse_args($post_meta, $default_meta);
 		} else {
 			return $default_meta;
+		}
+	}
+
+	public static function get_countries()
+	{
+		return array();
+	}
+
+	public static get_country_name($abbr)
+	{
+		$countries = self::get_countries();
+		if (isset($countries[$abbr])) {
+			return $countries[$abbr];
+		} else {
+			return '';
+		}
+	}
+
+	public static get_region_from_country($abbr)
+	{
+		$eu  = array();
+		if ($abbr == "UK") {
+			return "uk";
+		} elseif (in_array($abbr, $eu)) {
+			return "eu";
+		} else {
+			return "row";
 		}
 	}
 
@@ -877,10 +1008,8 @@ class PayPalPlugin
 		add_settings_field('shipping_method', 'Shipping Configuration', array("PayPalPlugin", 'setting_shipping_method_fn'), __FILE__, 'shipping_section');
 		add_settings_field('shipping_settings', 'Shipping Settings', array("PayPalPlugin", 'setting_shipping_fn'), __FILE__, 'shipping_section');
 		
-		//add_settings_field('base_shipping', 'Base shipping cost', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'shipping_section', array("field" => "base_shipping", "size" => 5));
-		//add_settings_field('item_shipping', 'Item shipping cost', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'shipping_section', array("field" => "item_shipping", "size" => 5));
 		add_settings_field('allow_pickup', 'Allow pick-up', array("PayPalPlugin", 'setting_cbx_fn'), __FILE__, 'shipping_section', array("field" => "allow_pickup", "desc" => "Checking this box will allow users to bypass shipping costs and elect to pick up items in person."));
-		add_settings_field('pickup_address', 'Pick-up address', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'shipping_section', array("field" => "pickup_address", "desc" => "Enter the address where items will be available to pick up."));
+		add_settings_field('pickup_address', 'Pick-up address', array("PayPalPlugin", 'setting_richtext_fn'), __FILE__, 'shipping_section', array("field" => "pickup_address", "desc" => "Enter the address where items will be available to pick up. Include any other information such as a link to google maps, opening hours, etc."));
 		/* VAT secion */
 		add_settings_section('vat_section', 'VAT', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('vat_rate', 'VAT rate', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'vat_section', array("field" => "vat_rate", "size" => 5, "desc" => "Please enter the percentage VAT rate applied to all items."));
@@ -1087,13 +1216,14 @@ class PayPalPlugin
 	{
 		$options = self::get_paypal_options();
 		$methods = self::get_shipping_methods();
+		print('<pre>');print_r($options["shipping_settings"]);print('</pre>');
 		if (isset($options["shipping_method"]) && in_array($options["shipping_method"], array_keys($methods))) {
 			$regions = self::get_shipping_regions();
 			printf('<script>var regions = %s;</script>', json_encode($regions));
 			$form_method_name = "shipping_settings_form_" . $options["shipping_method"];
 			print(self::$form_method_name());
 			$hidden_method_name = "shipping_settings_hidden_" . $options["shipping_method"];
-			print(self::$hidden_method_name());
+			//print(self::$hidden_method_name());
 		} else {
 			print('<p>You need to choose a shipping calculation method above before you can configure these settings.</p>');
 		}
@@ -1106,7 +1236,6 @@ class PayPalPlugin
 	public static function shipping_settings_form_bands()
 	{
 		$options = self::get_paypal_options();
-		print('<pre>');print_r($options["shipping_settings"]);print('</pre>');
 		$regions = self::get_shipping_regions();
 		if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["bands"]) || !count($options["shipping_settings"]["bands"])) {
 			$bands = array();
@@ -1124,48 +1253,19 @@ class PayPalPlugin
 			printf('<fieldset class="shipping-band" data-band-id="%s" id="band_%d"><input type="hidden" name="paypal_options[shipping_settings][band_ids][]" value="%s" />', $i, $i, $i);
 			printf('<p><label for="pp_band_name_%d">Name:</label><input type="text" name="paypal_options[shipping_settings][band][name_%d]" id="pp_band_name_%d" value="%s" size="20" /></p>', $i, $i, $i, $bands[$i]["name"]);
 			$chckd = ($bands[$i]["default"] || count($bands) == 1)? ' checked="checked"': '';
-			printf('<p><label for="pp_band_default_%s" class="wide"><input type="radio" id="pp_band_default_%s" class="default-band" name="paypal_options[shipping_settings][default_band]" value="%s"%s> Check this box to make this the default postage band</label></p>', $i, $i, $i, $chckd);
+			printf('<p><label for="pp_band_default_%s" class="wide">Check this box to make this the default postage band: <input type="radio" id="pp_band_default_%s" class="default-band" name="paypal_options[shipping_settings][default_band]" value="%s"%s></label></p>', $i, $i, $i, $chckd);
 			foreach ($regions as $region_code => $region_name) {
 				printf('<fieldset><legend>%s</legend>', $region_name);
 				$val = self::dec2($bands[$i][$region_code]["shipping_one"]);
-				printf('<p><label for="pp_shipping_one_%s_%d">First item:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_one_%s_%d]" id="pp_shipping_one_%s_%d" value="%s" size="7" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
+				printf('<p><label for="pp_shipping_one_%s_%d">First item:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_one_%s_%d]" id="pp_shipping_one_%s_%d" value="%s" size="7" class="currency" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
 				$val = self::dec2($bands[$i][$region_code]["shipping_multiple"]);
-				printf('<p><label for="pp_shipping_multiple_%s_%d">Subsequent items:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_multiple_%s_%d]" id="pp_shipping_multiple_%s_%d" value="%s" size="7" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
+				printf('<p><label for="pp_shipping_multiple_%s_%d">Subsequent items:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_multiple_%s_%d]" id="pp_shipping_multiple_%s_%d" value="%s" size="7" class="currency" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
 				print('</fieldset>');
 			}
 			printf('<p id="delete-button-%d" class="delete-band"><a href="#" class="delete-band-button button-secondary" data-band-id="%d">delete this band</a>', $i, $i);
 			print('</fieldset>');
 		}
 		print('</div><p><a class="button-secondary" id="add-band">Add a new postage band</a></p></div>');
-	}
-
-	/**
-	 * hidden inputs for when a series of bands are used
-	 * (to save settings when switching between methods)
-	 */
-	public static function shipping_settings_hidden_bands()
-	{
-		$options = self::get_paypal_options();
-		$regions = self::get_shipping_regions();
-		if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["bands"]) || !count($options["shipping_settings"]["bands"])) {
-			$bands = array();
-		} else {
-			$bands = $options["shipping_settings"]["bands"];
-		}
-		for ($i = 0; $i < count($bands); $i++) {
-			printf('<input type="hidden" name="paypal_options[shipping_settings][band_ids][]" value="%s" />', $i);
-			printf('<input type="hidden" name="paypal_options[shipping_settings][band][name_%d]" value="%s" />', $i, esc_attr($bands[$i]["name"]));
-			$default = ($bands[$i]["default"] || count($bands) == 1)? 1: 0;
-			if ($default) {
-				printf('<input type="hidden" name="paypal_options[shipping_settings][default_band]" value="%s">', $i);
-				foreach ($regions as $region_code => $region_name) {
-					$val = self::dec2($bands[$i][$region_code]["shipping_one"]);
-					printf('<input type="hidden" name="paypal_options[shipping_settings][band][shipping_one_%s_%d]" value="%s" />', $region_code, $i, $val);
-					$val = self::dec2($bands[$i][$region_code]["shipping_multiple"]);
-					printf('<input type="hidden" name="paypal_options[shipping_settings][band][shipping_multiple_%s_%d]" value="%s" /></p>', $region_code, $i, $val);
-				}
-			}
-		}
 	}
 
 	/**
@@ -1203,48 +1303,26 @@ class PayPalPlugin
 		$options = self::get_paypal_options();
 		$regions = self::get_shipping_regions();
 		if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["weights"]) || !count($options["shipping_settings"]["weights"])) {
+			$weights = array();
 			$empty_weight = array('to_weight_0' => '', "default" => 0);
 			foreach ($regions as $region_code => $region_name) {
 				$empty_weight["shipping_weight_" . $region_code . "_0"] = '';
 			}
-			$weights = $empty_weight;
+			$weights[] = $empty_weight;
 		} else {
-			$weights = $options["shipping_settings"]["weight"];
+			$weights = $options["shipping_settings"]["weights"];
 		}
 		print('<div id="shipping-settings"><div id="shipping-weights">');
 		for ($i = 0; $i < count($weights); $i++) {
 			printf('<fieldset class="shipping_weight" data-weight-id="%d" id="weight_%d"><input type="hidden" name="paypal_options[shipping_settings][weight_ids][]" value="%s" />', $i, $i, $i);
-			printf('<p><label for="pp_to_weight_%d">Up to and including items weighing: </label><input type="text" name="paypal_options[shipping_settings][weight][to_weight_%d]" id="pp_to_weight_%d" value="%s" />g</p>', $i, $i, $i, $weights[$i]["to_weight"]);
+			printf('<p><label for="pp_to_weight_%d">Up to and including items weighing: </label><input type="text" name="paypal_options[shipping_settings][weight][to_weight_%d]" id="pp_to_weight_%d" value="%s" size="5" />g</p>', $i, $i, $i, $weights[$i]["to_weight"]);
 			foreach ($regions as $region_code => $region_name) {
 				$val = self::dec2($weights[$i]["shipping_weight_" . $region_code]);
-				printf('<p><label for="pp_shipping_weight_%s_%d">%s</label><input type="text" name="paypal_options[shipping_settings][weight][shipping_weight_%s_%d]", id="pp_shipping_weight_%s_%d" value="%s" /></p>', $region_code, $i, $region_name, $region_code, $i, $region_code, $i, $weights[$i]["shipping_weight_" . $region_code]);
+				printf('<p><label for="pp_shipping_weight_%s_%d">%s</label><input type="text" name="paypal_options[shipping_settings][weight][shipping_weight_%s_%d]", id="pp_shipping_weight_%s_%d" value="%.02f" size="7" class="currency" /></p>', $region_code, $i, $region_name, $region_code, $i, $region_code, $i, $weights[$i][$region_code]);
 			}
-			printf('<p><a href="#" class="delete-weight button-secondary" data-weight-id="%d">delete this setting</a></p></fieldset>', $i);
+			printf('<p class="delete-weight" id="delete-button-%d"><a href="#" class="delete-weight-button button-secondary" data-weight-id="%d">delete this setting</a></p></fieldset>', $i, $i);
 		}
 		print('</div><p><a class="button-secondary" id="add-weight">Add a new weight range</a></p></div>');
-	}
-
-	/**
-	 * hidden fields for when a series of bands are used
-	 * (to save settings when switching between methods)
-	 */
-	public static function shipping_settings_hidden_weights()
-	{
-		$options = self::get_paypal_options();
-		$regions = self::get_shipping_regions();
-		if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["weights"]) || !count($options["shipping_settings"]["weights"])) {
-			$weights = array();
-		} else {
-			$weights = $options["shipping_settings"]["weights"];
-		}
-		for ($i = 0; $i < count($weights); $i++) {
-			printf('<input type="hidden" name="paypal_options[shipping_settings][weight_ids][]" value="%s" />', $i);
-			printf('<input type="hidden" name="paypal_options[shipping_settings][weight][to_weight_%d]" value="%s" />', $i, $weights[$i]["to_weight"]);
-			foreach ($regions as $region_code => $region_name) {
-				$val = self::dec2($weights[$i][$region_code]);
-				printf('<input type="hidden" name="paypal_options[shipping_settings][weight][shipping_weight_%s_%d]" value="%s" /></p>', $region_code, $i, $val);
-			}
-		}
 	}
 
 	/**
@@ -1253,19 +1331,21 @@ class PayPalPlugin
 	public static function validate_shipping_weight($weight, $weight_id)
 	{
 		$details = array();
-		if (isset($weight["to_weight_" . $weight_id]) && intval($weight["to_weight" . $weight_id]) > 0) {
+		if (isset($weight["to_weight_" . $weight_id]) && intval($weight["to_weight_" . $weight_id]) > 0) {
 			$regions = self::get_shipping_regions();
 			foreach ($regions as $region_code => $region_name) {
 				if (isset($weight["shipping_weight_" . $region_code . "_" . $weight_id]) && 
-					trim($weight["shipping_weight_" . $region_code . "_" . $weight_id])) {
+					trim($weight["shipping_weight_" . $region_code . "_" . $weight_id]) != "") {
 					$details[$region_code] = intval($weight["shipping_weight_" . $region_code . "_" . $weight_id]);
 				}
 			}
-			if (count($details)) {
+			if (count($details) == count($regions)) {
 				$details["to_weight"] = $weight["to_weight_" . $weight_id];
+				return $details;
+			} else {
+				return array();
 			}
 		}
-		return $details;
 	}
 
 	/**
@@ -1364,7 +1444,7 @@ class PayPalPlugin
 			$bands = array();
 			$default = isset($options["shipping_settings"]["default_band"])? $options["shipping_settings"]["default_band"]: false;
 			if (isset($options["shipping_settings"]["band_ids"]) && is_array($options["shipping_settings"]["band_ids"])) {
-				foreach($options["shipping_settings"]["band_ids"] as $band_id) {
+				foreach(array_unique($options["shipping_settings"]["band_ids"]) as $band_id) {
 					$band = self::validate_shipping_band($options["shipping_settings"]["band"], $band_id, $default);
 					if (!empty($band)) {
 						$bands[] = $band;
@@ -1374,11 +1454,14 @@ class PayPalPlugin
 				$bands = $defaults["shipping_settings"]["bands"];
 			}
 			$options["shipping_settings"]["bands"] = $bands;
+			unset($options["shipping_settings"]["band_ids"]);
+			unset($options["shipping_settings"]["band"]);
+			unset($options["shipping_settings"]["default_band"]);
 
 			$weights = array();
 			if (isset($options["shipping_settings"]["weight_ids"]) && is_array($options["shipping_settings"]["weight_ids"])) {
-				foreach($options["shipping_settings"]["weight_ids"] as $weight_id) {
-					$weight = self::validate_shipping_weight($options["shipping_settings"], $weight_id);
+				foreach(array_unique($options["shipping_settings"]["weight_ids"]) as $weight_id) {
+					$weight = self::validate_shipping_weight($options["shipping_settings"]["weight"], $weight_id);
 					if (!empty($weight)) {
 						$weights[] = $weight;
 					}
@@ -1387,6 +1470,8 @@ class PayPalPlugin
 				$weights = $defaults["shipping_settings"]["weights"];
 			}
 			$options["shipping_settings"]["weights"] = $weights;
+			unset($options["shipping_settings"]["weight_ids"]);
+			unset($options["shipping_settings"]["weight"]);
 		} else {
 			add_settings_error('shipping_method', 'shipping_method', 'Please specify a shipping method');
 		}

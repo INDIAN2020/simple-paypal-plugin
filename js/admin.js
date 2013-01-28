@@ -4,7 +4,22 @@
 		if (window.console && window.console.log) {
 			window.console.log(msg);
 		}
-	}
+	},
+	formatCurrency = function(val) {
+		if ($.trim(val) == '') {
+			return '0.00';
+		} else {
+			var valueStr, value100 = Math.floor(parseFloat(val)*100);
+			if (value100 < 10) {
+				return '0.0'+value100;
+			} else if (value100 < 100) {
+				return '0.'+value100;
+			} else {
+				valueStr = ''+value100; 
+				return valueStr.substr(0, (valueStr.length - 2))+'.'+valueStr.substr(-2);
+			}
+		}
+	};
 	/* hide the delete button on the default band */
 	$('.delete-band-button').each(function(){
 		var id = $(this).attr('data-band-id');
@@ -17,6 +32,10 @@
 	if ($('.default-band').length && !$('.default-band:checked').length) {
 		log2console('setting first postage band to default');
 		$('.default-band:first').attr('checked', true);
+	} 
+	/* make sure there is at least one weight setting form shown */
+	if ($('.delete-weight-button').length == 1) {
+		$('.delete-weight-button').hide();
 	}
 	/* hide the delete button for the default */
 	$('#shipping-settings').on('click', '.default-band', function(e){
@@ -61,8 +80,8 @@
 		html += '<p><label for="pp_band_default_%s" class="wide"><input type="radio" id="pp_band_default_'+nextid+'" class="default-band" name="paypal_options[shipping_settings][default_band]" value="'+nextid+'"'+chckd+'> Check this box to make this the default postage band</label></p>';
 		for (r in regions) {
 			html += '<fieldset><legend>'+regions[r]+'</legend>';
-			html += '<p><label for="pp_shipping_one_'+r+'_'+nextid+'">First item:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_one_'+r+'_'+nextid+']" id="pp_shipping_one_'+r+'_'+nextid+'" value="" /></p>';
-			html += '<p><label for="pp_shipping_multiple_'+r+'_'+nextid+'">Subsequent items:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_multiple_'+r+'_'+nextid+']" id="pp_shipping_multiple_'+r+'_'+nextid+'" value="" /></p>';
+			html += '<p><label for="pp_shipping_one_'+r+'_'+nextid+'">First item:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_one_'+r+'_'+nextid+']" id="pp_shipping_one_'+r+'_'+nextid+'" value="" class="currency" /></p>';
+			html += '<p><label for="pp_shipping_multiple_'+r+'_'+nextid+'">Subsequent items:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_multiple_'+r+'_'+nextid+']" id="pp_shipping_multiple_'+r+'_'+nextid+'" value="" class="currency" /></p>';
 			html += '</fieldset>';
 		}
 		html += '<p id="delete-button-'+nextid+'" class="delete-band"><a href="#" class="delete-band-button button-secondary" data-band-id="'+nextid+'">delete this band</a></p></fieldset>';
@@ -70,6 +89,7 @@
 		e.stopPropagation();
 		return false;
 	});
+	/* click action for add weight button */
 	$('#shipping-settings').on('click', '#add-weight', function(){
 		/* determine next id for weight */
 		var nextid = -1, newid = 0, html = '';
@@ -82,17 +102,28 @@
 		html += '<fieldset class="shipping_weight" data-weight-id="'+nextid+'" id="weight_'+nextid+'"><input type="hidden" name="weight_ids[]" value="'+nextid+'" />';
 		html += '<p><label for="pp_to_weight_'+nextid+'">Up to and including items weighing: </label><input type="text" name="paypal_options[shipping_settings][weight][to_weight_'+nextid+']" id="pp_to_weight_'+nextid+'" size="5" />g</p>';
 		for (r in regions) {
-			html += '<p><label for="pp_shipping_weight_'+r+'_'+nextid+'">'+regions[r]+'</label><input type="text" name="paypal_options[shipping_settings][weight][shipping_weight_'+r+'_'+nextid+']", id="pp_shipping_weight_'+r+'_'+nextid+'" size="7" /></p>';
+			html += '<p><label for="pp_shipping_weight_'+r+'_'+nextid+'">'+regions[r]+'</label><input type="text" name="paypal_options[shipping_settings][weight][shipping_weight_'+r+'_'+nextid+']", id="pp_shipping_weight_'+r+'_'+nextid+'" size="7" class="currency" /></p>';
 		}
-		html += '<p><a href="#" class="delete-weight button-secondary" data-weight-id="'+nextid+'">delete this setting</a></p></fieldset>';
+		html += '<p id="delete-button-'+nextid+'" class="delete-weight"><a href="#" class="delete-weight-button button-secondary" data-weight-id="'+nextid+'">delete this setting</a></p></fieldset>';
 		$('#shipping-weights').append(html);
+		$('.delete-weight-button').show();
 	});
-	$('#shipping-bands').on('click', '.delete-weight', function(e){
-		e.preventDefault();
+	/* click action for delete weight settings button */
+	$('#shipping-settings').on('click', '.delete-weight-button', function(e){
 		var id = $(this).attr('data-weight-id');
-		$('#weight_'+id).remove();
+		if ($('.delete-weight-button').length == 1) {
+			alert("You cannot delete all weight settings");
+		} else {
+			log2console("deleting weight settings form");
+			$('#weight_'+id).remove();
+			if ($('.delete-weight-button').length == 1) {
+				$('.delete-weight-button').hide();
+			}
+		}
+		e.stopPropagation();
 		return false;
 	});
+	/* switch methods between bands and weights */
 	$('#switch_method').on('click', function(e){
 		e.preventDefault();
 		var currentmethod = $('#shipping_method').val();
@@ -100,6 +131,8 @@
 		$(this).parents('form').submit();
 		return false;
 	});
-
+	$('#shipping-settings').on('blur', '.currency', function(){
+		$(this).val(formatCurrency($(this).val()));
+	});
 
 }(jQuery));

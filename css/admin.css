@@ -21,7 +21,7 @@ License: GPL2
  	padding:0.5em 0;}
 .paypal-options label {
 	float:left;
-	width:25%;
+	width:30%;
 	text-align:right;
 	padding:0 2.5%;}
 .paypal-options input {
@@ -57,7 +57,7 @@ License: GPL2
 }
 #shipping-settings p label {
 	float:left;
-	width:20%;
+	width:30%;
 	margin-right:3%;
 	text-align:right;
 }
@@ -68,9 +68,4 @@ License: GPL2
 }
 #shipping-settings p input[type=text] {
 	float:left;
-}
-#shipping-settings p input[type=radio] {
-	float:left;
-	width:23%;
-	text-align:right;
 }
