@@ -191,9 +191,9 @@ class PayPalPlugin
 	}
 	
 
-	/***ons***********************
-	 * ENQUIRY FORM		   *
-	 **************************/
+	/***********************
+	 * ENQUIRY FORM	  	   *
+	 ***********************/
 
 	/**
 	 * returns a enquiry form for a given product
@@ -546,20 +546,22 @@ class PayPalPlugin
 		}
 		/* fields for item delivery address  */
 		$address_fields = array(
-			'name' => 'Name',
-			'address1' => 'Address',
-			'address2' => '&nbsp;',
-			'address3' => '&nbsp;',
-			'address4' => '&nbsp;',
-			'country' => 'Country',
-			'postcode' => 'Postcode/Zip'
+			'name' => array('label' => 'Name', 'required' => true),
+			'address1' => array('label' => 'Address', 'required' => true),
+			'address2' => array('label' => '&nbsp;', 'required' => false),
+			'address3' => array('label' => '&nbsp;', 'required' => false),
+			'address4' => array('label' => '&nbsp;', 'required' => false),
+			'country' => array('label' => 'Country', 'required' => true),
+			'postcode' => array('label' => 'Postcode/Zip', 'required' => true),
 		);
-		$countries = self::get_countries();
+		/* shipping regions */
+		$regions = self::get_shipping_regions();
 		/**
-		 * shipping data is set in the session
+		 * shipping data is set in the session, including the (non-pickup)
+		 * delivery address.
 		 */
 		if (!isset($_SESSION["shipping_data"])) {
-			$_SESSION["shipping_data"] = array("total_weight" => 0, "bands" => array(), "errors" => array());
+			$_SESSION["shipping_data"] = array("total_weight" => 0, "bands" => array(), "errors" => array(), "delivery_method" => "post", "address" => array());
 		}
 		/* see if we are coming from the delivery address form */
 		if (isset($_REQUEST['delivery_change'])) {
@@ -573,21 +575,36 @@ class PayPalPlugin
 			/* delivery address */
 			if (isset($_REQUEST["save_delivery_address"]) || isset($_REQUEST["change_delivery_address"])) {
 				/* validate form values */
-				foreach (array("name", "address1", "postcode") as $req) {
-					if (!isset($_REQUEST["delivery_" . $req]) || trim($_REQUEST["delivery_" . $req]) == "") {
-						$_SESSION["shipping_data"]["errors"][$req] = true;
-					} else {
-						@unset($_SESSION["shipping_data"]["errors"][$req]);
+				foreach ($address_fields as $name => $details) {
+					if ($details["required"]) {
+						/* ensure required fields are non-empty */
+						if (!isset($_REQUEST["delivery_" . $name]) || trim($_REQUEST["delivery_" . $name]) == "") {
+							$_SESSION["shipping_data"]["errors"][$name] = "This field is required";
+							continue;
+						}
+						/* validate country field */
+						if ($name == "country") {
+							$country = false;
+							foreach ($regions as $region_code => $region) {
+								if (in_array($_REQUEST["delivery_country"], array_keys($region["countries"]))) {
+									$country = $_REQUEST["delivery_country"];
+								}
+							}
+							if (!$country) {
+								$_SESSION["shipping_data"]["errors"]["country"] = "This field is required";
+							} else {
+								$_SESSION["shipping_data"]["address"]["country"] = trim($_REQUEST["delivery_country"]);
+							}
+							continue;
+						}
+						if (isset($_SESSION["shipping_data"]["errors"][$name])) {
+							unset($_SESSION["shipping_data"]["errors"][$name]);
+						}
+						$_SESSION["shipping_data"]["address"][$name] = trim($_REQUEST["delivery_" . $name]);
 					}
-				}
-				if (!isset($_REQUEST["delivery_country"]) || !isset($countries[$_REQUEST["delivery_country"]]) {
-					$_SESSION["shipping_data"]["errors"]["country"] = true;
-				} else {
-					@unset($_SESSION["shipping_data"]["errors"]["country"]);
 				}
 			}
 		}
-		$_SESSION["shipping_data"] = $shipping_data;
 		/* initialise variables to store output and track totals */
 		$out = "";
 		$total_items = 0;
@@ -613,17 +630,17 @@ class PayPalPlugin
 				}
 				$item_has_more_stock["p" . $item["product_page_id"]] = ($item["quantity"] < $paypal["stock"]);
 				/* get all totals and shipping */
-				$total_price += $item['price'] * $item['quantity'];
+				$total_price += floatval($item['price']) * intval($item['quantity']);
 				/* add to weight total if weight is used to determine shipping cost */
 				if ($options["shipping_method"] == "weights" && isset($item["shipping_weight"]) && intval($item["shipping_weight"]) > 0) {
-					$shipping_data["total_weight"] += intval($item["shipping_weight"]);
+					$_SESSION["shipping_data"]["total_weight"] += (intval($item["shipping_weight"]) * intval($item['quantity']));
 				}
 				/* add item's band if shipping is done through postage bands */
 				if ($options["shipping_method"] == "bands" && isset($item["shipping_band"]) && trim($item["shipping_band"]) != '') {
-					if (isset($shipping_data["bands"][trim($item["shipping_band"])])) {
-						$shipping_data["bands"][trim($item["shipping_band"])] += $item["quantity"];
+					if (isset($_SESSION["shipping_data"]["bands"][trim($item["shipping_band"])])) {
+						$_SESSION["shipping_data"]["bands"][trim($item["shipping_band"])] += $item["quantity"];
 					} else {
-						$shipping_data["bands"][trim($item["shipping_band"])] = $item["quantity"];
+						$_SESSION["shipping_data"]["bands"][trim($item["shipping_band"])] = $item["quantity"];
 					}
 				}
 				$total_items +=  $item['quantity'];
@@ -666,64 +683,125 @@ class PayPalPlugin
 			}
 			$out .= sprintf('	<tr class="subtotal"><td colspan="3">Subtotal:</td><td colspan="2">&pound;%.2f</td></tr>', ($total_ex_vat + $total_vat));
 			/* output a form to allow changes in shipping information */
-			$shipping_form = sprintf('<form method="post" action="%s" method="post"><input type="hidden" name="delivery_change" value="1" />', $options["cart_url"]);
+			$out .= sprintf('<tr><td colspan="3"><h3>Shipping</h3><form method="post" action="%s" method="post"><input type="hidden" name="delivery_change" value="1" />', $options["cart_url"]);
 			/* the delivery method is set once the cart page has been submitted */
-			if (isset($shipping_data["delivery_method"])) {
-				$shipping_form .= sprintf('<input type="hidden" name="delivery_method" value="%s" />', $shipping_data["delivery_method"]);
-				if ($shipping_data["delivery_method"] == "pickup") {
-					$shipping_form .= '<p>You are picking these items up in person <input type="submit" name="change_delivery_method_post" value="Have them posted instead" class="pp-button" /></p>';
-					$shipping_form .= $options["pickup_address"];
-				} else {
-					$shipping_form .= '<p>These items will be delivered to:</p>';
+			$out .= sprintf('<input type="hidden" name="delivery_method" value="%s" />', $_SESSION["shipping_data"]["delivery_method"]);
+			if ($_SESSION["shipping_data"]["delivery_method"] == "pickup") {
+				$out .= '<p>You are picking these items up in person <input type="submit" name="change_delivery_method_post" value="Have them posted instead" class="pp-button" /></p>';
+				$out .= $options["pickup_address"];
+				/* clear any errors */
+				$_SESSION["shipping_data"]["errors"] = array();
+			} else {
+				if (count($_SESSION["shipping_data"]["address"]) && !count($_SESSION["shipping_data"]["errors"])) {
+					/* address has been input, with no errors */
+					$out .= '<p>These items will be delivered to:</p>';
 					$address = array();
 					foreach(array_keys($address_fields) as $field) {
-						if (isset($shipping_data["delivery_" . $field]) && trim($shipping_data["delivery_" . $field]) != "") {
+						if (isset($_SESSION["shipping_data"][$field]) && trim($_SESSION["shipping_data"][$field]) != "") {
 							if ($field == "country") {
-								$address[] = self::get_country_name($country);
+								$address[] = self::get_country_name($_SESSION["shipping_data"]["country"]);
+							} else {
+								$address[] = trim($_SESSION["shipping_data"][$field]);
 							}
-							$address[] = trim($shipping_data["delivery_" . $field]);
-							/* add paypal address input hidden fields here */
 						}
 					}
-					$shipping_form .= '<p>' . implode(", ", $address) . '</p>';
-					$shipping_form .= '<p><input type="submit" name="change_delivery_address" value="change this address" class="pp-button" /><input type="submit" name="change_delivery_method_pickup" value="Pick these items up in person instead" class="pp-button" /></p>';
-				}
-			} else {
-				$shipping_form .= '<p>Please input your name and delivery address:</p>';
-				foreach ($address_fields as $name => $label) {
-					$value = isset($shipping_data["delivery_" . $name])? trim($shipping_data["delivery_" . $name]): '';
-					if ($name == 'country') {
-						$sel = ($value == '')? ' selected="selected"': '';
-						$shipping_form .= sprintf('<p class="address-input"><label for="delivery_country">Country</label><select name="delivery_country" id="delivery_country"><option value="select"%s>Please select a country</option>', $sel);
-						foreach ($countries as $code => $name) {
-							$sel = ($value == $code)? ' selected="selected"': '';
-							$shipping_form .= sprintf('<option value="%s"%s>%s</option>', $code, $sel, $name);
-						}
-						$shipping_form .= '</select></p>';
-					} else {
-						$shipping_form .= sprintf('<p class="address-input"><label for="delivery_%s"></label><input type="text" name-"delivery_%s" class="pp-input" id="delivery_%s" value="%s" /></p>', $name, $name, $name, $value);
+					/* add paypal address input hidden fields here */
+					for ($i = 1; $i <= count($address); $i++) {
+						$masterForm .= sprintf('<input type="hidden" name="shipping_address_%d" value="%s" />', $i, $address[($i - 1)]);
 					}
-				}
-				$shipping_form .= '<p class="address-input address-input-button"><input type="submit" name="save_delivery_address" value="Save this address" /></p>';
-			}
-			if (isset($shipping_data["delivery_method"])) {
-				$postage_cost = self::calculate_shipping($shipping_data);
-				$out .= sprintf('	<tr class="subtotal"><td colspan="3">Shipping:</td><td colspan="2">&pound;%.2f</td></tr>', $postage_cost);
-
-				$pickup_fmt = ;
-				if (isset($_SESSION["user_pickup"]) && $_SESSION["user_pickup"]) {
-					$pickup_form = sprintf($pickup_fmt, 0, "", "cancel");
-					$postage_cost = 0;
+					$out .= '<p>' . implode(", ", $address) . '</p>';
+					$out .= '<p><input type="submit" name="change_delivery_address" value="change this address" class="pp-button" /><input type="submit" name="change_delivery_method_pickup" value="Pick these items up in person instead" class="pp-button" /></p>';
 				} else {
-					$pickup_form = sprintf($pickup_fmt, 1, "To pick your items up in person, ", "click here");
+					/* address not input, or input with errors */
+					$out .= '<p>Please input your name and delivery address:</p>';
+					foreach ($address_fields as $name => $details) {
+						$value = isset($_SESSION["shipping_data"][$name])? trim($_SESSION["shipping_data"][$name]): '';
+						$required = ($details["required"])? ' <span class="required">*</span>': '';
+						if ($name == 'country') {
+							$out .= sprintf('<p class="address-input"><label for="delivery_country">Country%s</label>%s</p>', $required, self::get_countries_select('delivery_country', $value));
+						} else {
+							$out .= sprintf('<p class="address-input"><label for="delivery_%s">%s%s</label><input type="text" name="delivery_%s" class="pp-input" id="delivery_%s" value="%s" /></p>', $name, $details["label"], $required, $name, $name, $value);
+						}
+						if (isset($_SESSION["errors"]) && isset($_SESSION["errors"][$name])) {
+							$out .= sprintf('<p class="error">%s</p>', $_SESSION["errors"][$name]);
+						}
+					}
+					$out .= '<p class="address-input address-input-button"><input type="submit" name="save_delivery_address" value="Save this address" /></p>';
 				}
-				$out .= sprintf('	<tr><td colspan="2">%s</td><td class="subtotal">Shipping:</td><td colspan="2" class="subtotal">&pound;%.2f</td></tr>', $pickup_form, $postage_cost);
-			} else {
 			}
-			$masterForm .= sprintf('<input type="hidden" name="shipping_1" value="%s" /><input type="hidden" name="return" value="%s" /><input type="hidden" name="notify_url" value="%s" />', $postage_cost, $options["cart_url"], $options["cart_url"]);  
-			$out .= sprintf('	<tr class="total"><td colspan="3">Total:</td><td colspan="2">&pound;%.2f</td></tr>', ($total_price + $postage_cost));
-			$out .= sprintf('	<tr class="total"><td colspan="4"><form action="%s" id="pp-form" method="post">%s<input type="submit" class="pp-button pp-checkout-button" name="submit" title="Make payments with PayPal -  fast, free and secure!" /><input type="hidden" name="business" value="%s" /><input type="hidden" name="currency_code" value="%s" /><input type="hidden" name="cmd" value="_cart" /><input type="hidden" name="upload" value="1" /></form></td></tr>', $options["paypal_url"], $masterForm, $options["paypal_email"], $options["paypal_currency"]);
-			$out .= "  </table>";
+			$out .= '</form></td><td>';
+			$postage_cost = false;
+			if ($options["shipping_method"] == "weights") {
+				$total_weight = $_SESSION["shipping_data"]["total_weight"];
+				if (isset($options["weights"]) && is_array($options["weights"]) && count($options["weights"])) {
+					$max_weight = 0;
+					$target_band = false;
+					foreach ($options["weights"] as $weight_band) {
+						if ($total_weight <= $weight_band["to_weight"]) {
+							$max_weight = max($max_weight, $weight_band["to_weight"]);
+						}
+					}
+					foreach ($options["weights"] as $weight_band) {
+						if ($weight_band["to_weight"] == $max_weight) {
+							$target_band = $weight_band;
+							break;
+						}
+					}
+					if ($target_band && isset($_SESSION["shipping_data"]["country"])) {
+						$region = self::get_region($_SESSION["shipping_data"]["country"]);
+						$postage_cost = $target_band["regions"][$region];
+						$out .= sprintf('<script>var region_prices = %s;</script>', json_encode($target_band["regions"]));
+					}
+				}
+			} else {
+				if (isset($options["bands"]) && is_array($options["bands"]) && count($options["bands"]) && isset($_SESSION["shipping_data"]["country"])) {
+					$first_band = 0;
+					$target_band = false;
+					$region = self::get_region($_SESSION["shipping_data"]["country"]);
+					foreach ($options["bands"] as $postage_band) {
+						if (isset($_SESSION["shipping_data"]["bands"][$postage_band["name"]]) && $_SESSION["shipping_data"]["bands"][$postage_band["name"]] > 0) {
+							$first_band = max($first_band, $postage_band[$region]["shipping_one"]);
+						}
+					}
+					foreach ($options["bands"] as $postage_band) {
+						if ($first_band == $postage_band[$region]["shipping_one"]) {
+							$target_band = $postage_band;
+							break;
+						}
+					}
+					if ($target_band) {
+						$postage_cost = 0;
+						$first_item = true;
+						foreach ($_SESSION["shipping_data"]["bands"] as $name => $total) {
+							if ($target_band["name"] == $name) {
+								if ($first_item) {
+									$first_item = false;
+									$postage_cost += $target_band[$region]["shipping_one"];
+								} else {
+									$postage_cost += $target_band[$region]["shipping_multiple"];
+								}
+								$_SESSION["shipping_data"]["bands"][$name]--;
+							} else {
+								foreach ($options["bands"] as $band) {
+									if ($band["name"] == $name) {
+										$postage_cost += $_SESSION["shipping_data"]["bands"][$name] * $band["shipping_multiple"];
+									}
+								}
+							}
+						}
+						$out .= sprintf('<script>var region_prices = %s;</script>', json_encode($target_band));
+					}
+				}
+			}
+			$print_cost = ($postage_cost)? self::dec2($postage_cost): '';
+			$out .= sprintf('<td colspan="2">&pound;<span id="postage_cost">%.02f</span></td></tr>', $print_cost);
+			$masterForm .= sprintf('<input type="hidden" name="shipping_1" value="%s" /><input type="hidden" name="return" value="%s" /><input type="hidden" name="notify_url" value="%s" />', $print_cost, $options["cart_url"], $options["cart_url"]);
+			if ($postage_cost) {
+				$out .= sprintf('	<tr class="total"><td colspan="3">Total:</td><td colspan="2">&pound;%.2f</td></tr>', self::dec2($total_price + $postage_cost));
+				$out .= sprintf('	<tr class="total"><td colspan="4"><form action="%s" id="pp-form" method="post">%s<input type="submit" class="pp-button pp-checkout-button" name="submit" title="Make payments with PayPal -  fast, free and secure!" /><input type="hidden" name="business" value="%s" /><input type="hidden" name="currency_code" value="%s" /><input type="hidden" name="cmd" value="_cart" /><input type="hidden" name="upload" value="1" /></form></td></tr></table>', $options["paypal_url"], $masterForm, $options["paypal_email"], $options["paypal_currency"]);
+			} else {
+				$out .= '</table><p>Please fill out your delivery preferences above to continue.</p>';
+			}
 		} else {
 			return "  <p>Your basket is empty.</p>";
 		}
@@ -914,7 +992,6 @@ class PayPalPlugin
 	}
 	
 	/**
-	 * get_paypal_info
 	 * retrieves paypal information from a custom (meta) field
 	 * @param integer $page_ID
 	 * @return array
@@ -940,279 +1017,329 @@ class PayPalPlugin
 		}
 	}
 
-	public static function get_countries()
+	/**
+	 * retuns the name of a country based on country code
+	 * @param string two letter country code
+	 */
+	public static function get_country_name($abbr)
+	{
+		$regions = self::get_shipping_regions();
+		foreach($regions as $region_code => $details) {
+			foreach($details["countries"] as $country_code => $country_name) {
+				if ($abbr == $country_code) {
+					return $country_name;
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * returns a dropdown select list of countries
+	 * @param string name of dropdown (also used as ID)
+	 * @param string selected value
+	 */
+	public static function get_countries_dropdown($select_name = '', $selected = '')
+	{
+		$regions = self::get_shipping_regions();
+		$sel = ($selected == '')? ' selected="selected"': '';
+		$out = sprintf('<select name="%s" id="%s"><option value=""%s>Please select a country&hellip;</option>', $select_name, $select_name, $sel);
+		foreach ($regions as $region_code => $details) {
+			if (count($details["countries"])) {
+				$out .= sprintf('<optgroup name="%s">', $details["name"]);
+				foreach ($details["countries"] as $country_code => $country_name) {
+					$sel = ($selected == $country_code)? ' selected="selected"': '';
+					$out .= sprintf('<option value="%s"%s>%s</option>', $country_code, $sel, $country_name);
+				}
+			}
+			$out .= '</optgroup>';
+		}
+		$out .= "</select>";
+		return $out;
+	}
+
+	/**
+	 *  Derives a region code for a given country abbreviation
+	 */
+	public static function get_region($country)
+	{
+		$regions = self::get_shipping_regions();
+		/* first see if the country is in a defined region */
+		foreach ($regions as $region_code => $region) {
+			if (in_array($country, array_keys($region["countries"]))) {
+				return $region_code;
+			}
+		}
+	}
+
+	/**
+	 * gets supported shipping regions
+	 */
+	private static function get_shipping_regions()
 	{
 		return array(
-			"AU" => "Australia",
-			"AF" => "Afghanistan",
-			"AL" => "Albania",
-			"DZ" => "Algeria",
-			"AS" => "American Samoa",
-			"AD" => "Andorra",
-			"AO" => "Angola",
-			"AI" => "Anguilla",
-			"AQ" => "Antarctica",
-			"AG" => "Antigua & Barbuda",
-			"AR" => "Argentina",
-			"AM" => "Armenia",
-			"AW" => "Aruba",
-			"AT" => "Austria",
-			"AZ" => "Azerbaijan",
-			"BS" => "Bahamas",
-			"BH" => "Bahrain",
-			"BD" => "Bangladesh",
-			"BB" => "Barbados",
-			"BY" => "Belarus",
-			"BE" => "Belgium",
-			"BZ" => "Belize",
-			"BJ" => "Benin",
-			"BM" => "Bermuda",
-			"BT" => "Bhutan",
-			"BO" => "Bolivia",
-			"BA" => "Bosnia/Hercegovina",
-			"BW" => "Botswana",
-			"BV" => "Bouvet Island",
-			"BR" => "Brazil",
-			"IO" => "British Indian Ocean Territory",
-			"BN" => "Brunei Darussalam",
-			"BG" => "Bulgaria",
-			"BF" => "Burkina Faso",
-			"BI" => "Burundi",
-			"KH" => "Cambodia",
-			"CM" => "Cameroon",
-			"CA" => "Canada",
-			"CV" => "Cape Verde",
-			"KY" => "Cayman Is",
-			"CF" => "Central African Republic",
-			"TD" => "Chad",
-			"CL" => "Chile",
-			"CN" => "China, People's Republic of",
-			"CX" => "Christmas Island",
-			"CC" => "Cocos Islands",
-			"CO" => "Colombia",
-			"KM" => "Comoros",
-			"CG" => "Congo",
-			"CD" => "Congo, Democratic Republic",
-			"CK" => "Cook Islands",
-			"CR" => "Costa Rica",
-			"CI" => "Cote d'Ivoire",
-			"HR" => "Croatia",
-			"CU" => "Cuba",
-			"CY" => "Cyprus",
-			"CZ" => "Czech Republic",
-			"DK" => "Denmark",
-			"DJ" => "Djibouti",
-			"DM" => "Dominica",
-			"DO" => "Dominican Republic",
-			"TP" => "East Timor",
-			"EC" => "Ecuador",
-			"EG" => "Egypt",
-			"SV" => "El Salvador",
-			"GQ" => "Equatorial Guinea",
-			"ER" => "Eritrea",
-			"EE" => "Estonia",
-			"ET" => "Ethiopia",
-			"FK" => "Falkland Islands",
-			"FO" => "Faroe Islands",
-			"FJ" => "Fiji",
-			"FI" => "Finland",
-			"FR" => "France",
-			"FX" => "France, Metropolitan",
-			"GF" => "French Guiana",
-			"PF" => "French Polynesia",
-			"TF" => "French South Territories",
-			"GA" => "Gabon",
-			"GM" => "Gambia",
-			"GE" => "Georgia",
-			"DE" => "Germany",
-			"GH" => "Ghana",
-			"GI" => "Gibraltar",
-			"GR" => "Greece",
-			"GL" => "Greenland",
-			"GD" => "Grenada",
-			"GP" => "Guadeloupe",
-			"GU" => "Guam",
-			"GT" => "Guatemala",
-			"GN" => "Guinea",
-			"GW" => "Guinea-Bissau",
-			"GY" => "Guyana",
-			"HT" => "Haiti",
-			"HM" => "Heard Island And Mcdonald Island",
-			"HN" => "Honduras",
-			"HK" => "Hong Kong",
-			"HU" => "Hungary",
-			"IS" => "Iceland",
-			"IN" => "India",
-			"ID" => "Indonesia",
-			"IR" => "Iran",
-			"IQ" => "Iraq",
-			"IE" => "Ireland",
-			"IL" => "Israel",
-			"IT" => "Italy",
-			"JM" => "Jamaica",
-			"JP" => "Japan",
-			"JT" => "Johnston Island",
-			"JO" => "Jordan",
-			"KZ" => "Kazakhstan",
-			"KE" => "Kenya",
-			"KI" => "Kiribati",
-			"KP" => "Korea, Democratic Peoples Republic",
-			"KR" => "Korea, Republic of",
-			"KW" => "Kuwait",
-			"KG" => "Kyrgyzstan",
-			"LA" => "Lao People's Democratic Republic",
-			"LV" => "Latvia",
-			"LB" => "Lebanon",
-			"LS" => "Lesotho",
-			"LR" => "Liberia",
-			"LY" => "Libyan Arab Jamahiriya",
-			"LI" => "Liechtenstein",
-			"LT" => "Lithuania",
-			"LU" => "Luxembourg",
-			"MO" => "Macau",
-			"MK" => "Macedonia",
-			"MG" => "Madagascar",
-			"MW" => "Malawi",
-			"MY" => "Malaysia",
-			"MV" => "Maldives",
-			"ML" => "Mali",
-			"MT" => "Malta",
-			"MH" => "Marshall Islands",
-			"MQ" => "Martinique",
-			"MR" => "Mauritania",
-			"MU" => "Mauritius",
-			"YT" => "Mayotte",
-			"MX" => "Mexico",
-			"FM" => "Micronesia",
-			"MD" => "Moldavia",
-			"MC" => "Monaco",
-			"MN" => "Mongolia",
-			"MS" => "Montserrat",
-			"MA" => "Morocco",
-			"MZ" => "Mozambique",
-			"MM" => "Union Of Myanmar",
-			"NA" => "Namibia",
-			"NR" => "Nauru Island",
-			"NP" => "Nepal",
-			"NL" => "Netherlands",
-			"AN" => "Netherlands Antilles",
-			"NC" => "New Caledonia",
-			"NZ" => "New Zealand",
-			"NI" => "Nicaragua",
-			"NE" => "Niger",
-			"NG" => "Nigeria",
-			"NU" => "Niue",
-			"NF" => "Norfolk Island",
-			"MP" => "Mariana Islands, Northern",
-			"NO" => "Norway",
-			"OM" => "Oman",
-			"PK" => "Pakistan",
-			"PW" => "Palau Islands",
-			"PS" => "Palestine",
-			"PA" => "Panama",
-			"PG" => "Papua New Guinea",
-			"PY" => "Paraguay",
-			"PE" => "Peru",
-			"PH" => "Philippines",
-			"PN" => "Pitcairn",
-			"PL" => "Poland",
-			"PT" => "Portugal",
-			"PR" => "Puerto Rico",
-			"QA" => "Qatar",
-			"RE" => "Reunion Island",
-			"RO" => "Romania",
-			"RU" => "Russian Federation",
-			"RW" => "Rwanda",
-			"WS" => "Samoa",
-			"SH" => "St Helena",
-			"KN" => "St Kitts & Nevis",
-			"LC" => "St Lucia",
-			"PM" => "St Pierre & Miquelon",
-			"VC" => "St Vincent",
-			"SM" => "San Marino",
-			"ST" => "Sao Tome & Principe",
-			"SA" => "Saudi Arabia",
-			"SN" => "Senegal",
-			"SC" => "Seychelles",
-			"SL" => "Sierra Leone",
-			"SG" => "Singapore",
-			"SK" => "Slovakia",
-			"SI" => "Slovenia",
-			"SB" => "Solomon Islands",
-			"SO" => "Somalia",
-			"ZA" => "South Africa",
-			"GS" => "South Georgia and South Sandwich",
-			"ES" => "Spain",
-			"LK" => "Sri Lanka",
-			"XX" => "Stateless Persons",
-			"SD" => "Sudan",
-			"SR" => "Suriname",
-			"SJ" => "Svalbard and Jan Mayen",
-			"SZ" => "Swaziland",
-			"SE" => "Sweden",
-			"CH" => "Switzerland",
-			"SY" => "Syrian Arab Republic",
-			"TW" => "Taiwan, Republic of China",
-			"TJ" => "Tajikistan",
-			"TZ" => "Tanzania",
-			"TH" => "Thailand",
-			"TL" => "Timor Leste",
-			"TG" => "Togo",
-			"TK" => "Tokelau",
-			"TO" => "Tonga",
-			"TT" => "Trinidad & Tobago",
-			"TN" => "Tunisia",
-			"TR" => "Turkey",
-			"TM" => "Turkmenistan",
-			"TC" => "Turks And Caicos Islands",
-			"TV" => "Tuvalu",
-			"UG" => "Uganda",
-			"UA" => "Ukraine",
-			"AE" => "United Arab Emirates",
-			"GB" => "United Kingdom",
-			"UM" => "US Minor Outlying Islands",
-			"US" => "USA",
-			"HV" => "Upper Volta",
-			"UY" => "Uruguay",
-			"UZ" => "Uzbekistan",
-			"VU" => "Vanuatu",
-			"VA" => "Vatican City State",
-			"VE" => "Venezuela",
-			"VN" => "Vietnam",
-			"VG" => "Virgin Islands (British)",
-			"VI" => "Virgin Islands (US)",
-			"WF" => "Wallis And Futuna Islands",
-			"EH" => "Western Sahara",
-			"YE" => "Yemen Arab Rep.",
-			"YD" => "Yemen Democratic",
-			"YU" => "Yugoslavia",
-			"ZR" => "Zaire",
-			"ZM" => "Zambia",
-			"ZW" => "Zimbabwe"
+			'uk' => array(
+				'name' => 'UK',
+				'countries' => array(
+					"GB" => "United Kingdom"
+				)
+			), 
+			'eu' => array(
+				'name' => 'European Union', 
+				'countries' => array(
+					"AL" => "Albania",
+					"AT" => "Austria",
+					"BE" => "Belgium",
+					"BA" => "Bosnia/Hercegovina",
+					"BG" => "Bulgaria",
+					"HR" => "Croatia",
+					"CY" => "Cyprus",
+					"CZ" => "Czech Republic",
+					"DK" => "Denmark",
+					"EE" => "Estonia",
+					"FI" => "Finland",
+					"FR" => "France",
+					"DE" => "Germany",
+					"GI" => "Gibraltar",
+					"GR" => "Greece",
+					"HU" => "Hungary",
+					"IS" => "Iceland",
+					"IE" => "Ireland",
+					"IT" => "Italy",
+					"LV" => "Latvia",
+					"LI" => "Liechtenstein",
+					"LT" => "Lithuania",
+					"LU" => "Luxembourg",
+					"MK" => "Macedonia",
+					"MT" => "Malta",
+					"MC" => "Monaco",
+					"NL" => "Netherlands",
+					"NO" => "Norway",
+					"PL" => "Poland",
+					"PT" => "Portugal",
+					"RO" => "Romania",
+					"SK" => "Slovakia",
+					"SI" => "Slovenia",
+					"ES" => "Spain",
+					"SE" => "Sweden",
+					"CH" => "Switzerland",
+					"TR" => "Turkey",
+					"UA" => "Ukraine",
+					"VA" => "Vatican City State",
+					"YU" => "Yugoslavia"
+				)
+			),
+			'row' => array(
+				'name' => 'Rest of the World',
+				'countries' => array(
+					"AF" => "Afghanistan",
+					"DZ" => "Algeria",
+					"AS" => "American Samoa",
+					"AD" => "Andorra",
+					"AO" => "Angola",
+					"AI" => "Anguilla",
+					"AQ" => "Antarctica",
+					"AG" => "Antigua & Barbuda",
+					"AR" => "Argentina",
+					"AM" => "Armenia",
+					"AW" => "Aruba",
+					"AU" => "Australia",
+					"AZ" => "Azerbaijan",
+					"BS" => "Bahamas",
+					"BH" => "Bahrain",
+					"BD" => "Bangladesh",
+					"BB" => "Barbados",
+					"BY" => "Belarus",
+					"BZ" => "Belize",
+					"BJ" => "Benin",
+					"BM" => "Bermuda",
+					"BT" => "Bhutan",
+					"BO" => "Bolivia",
+					"BW" => "Botswana",
+					"BV" => "Bouvet Island",
+					"BR" => "Brazil",
+					"IO" => "British Indian Ocean Territory",
+					"BN" => "Brunei Darussalam",
+					"BF" => "Burkina Faso",
+					"BI" => "Burundi",
+					"KH" => "Cambodia",
+					"CM" => "Cameroon",
+					"CA" => "Canada",
+					"CV" => "Cape Verde",
+					"KY" => "Cayman Is",
+					"CF" => "Central African Republic",
+					"TD" => "Chad",
+					"CL" => "Chile",
+					"CN" => "China, People's Republic of",
+					"CX" => "Christmas Island",
+					"CC" => "Cocos Islands",
+					"CO" => "Colombia",
+					"KM" => "Comoros",
+					"CG" => "Congo",
+					"CD" => "Congo, Democratic Republic",
+					"CK" => "Cook Islands",
+					"CR" => "Costa Rica",
+					"CI" => "Cote d'Ivoire",
+					"CU" => "Cuba",
+					"DJ" => "Djibouti",
+					"DM" => "Dominica",
+					"DO" => "Dominican Republic",
+					"TP" => "East Timor",
+					"EC" => "Ecuador",
+					"EG" => "Egypt",
+					"SV" => "El Salvador",
+					"GQ" => "Equatorial Guinea",
+					"ER" => "Eritrea",
+					"ET" => "Ethiopia",
+					"FK" => "Falkland Islands",
+					"FO" => "Faroe Islands",
+					"FJ" => "Fiji",
+					"GF" => "French Guiana",
+					"PF" => "French Polynesia",
+					"TF" => "French South Territories",
+					"GA" => "Gabon",
+					"GM" => "Gambia",
+					"GE" => "Georgia",
+					"GH" => "Ghana",
+					"GL" => "Greenland",
+					"GD" => "Grenada",
+					"GP" => "Guadeloupe",
+					"GU" => "Guam",
+					"GT" => "Guatemala",
+					"GN" => "Guinea",
+					"GW" => "Guinea-Bissau",
+					"GY" => "Guyana",
+					"HT" => "Haiti",
+					"HM" => "Heard Island And Mcdonald Island",
+					"HN" => "Honduras",
+					"HK" => "Hong Kong",
+					"IN" => "India",
+					"ID" => "Indonesia",
+					"IR" => "Iran",
+					"IQ" => "Iraq",
+					"IL" => "Israel",
+					"JM" => "Jamaica",
+					"JP" => "Japan",
+					"JT" => "Johnston Island",
+					"JO" => "Jordan",
+					"KZ" => "Kazakhstan",
+					"KE" => "Kenya",
+					"KI" => "Kiribati",
+					"KP" => "Korea, Democratic Peoples Republic",
+					"KR" => "Korea, Republic of",
+					"KW" => "Kuwait",
+					"KG" => "Kyrgyzstan",
+					"LA" => "Lao People's Democratic Republic",
+					"LB" => "Lebanon",
+					"LS" => "Lesotho",
+					"LR" => "Liberia",
+					"LY" => "Libyan Arab Jamahiriya",
+					"MO" => "Macau",
+					"MG" => "Madagascar",
+					"MW" => "Malawi",
+					"MY" => "Malaysia",
+					"MV" => "Maldives",
+					"ML" => "Mali",
+					"MH" => "Marshall Islands",
+					"MQ" => "Martinique",
+					"MR" => "Mauritania",
+					"MU" => "Mauritius",
+					"YT" => "Mayotte",
+					"MX" => "Mexico",
+					"FM" => "Micronesia",
+					"MD" => "Moldavia",
+					"MN" => "Mongolia",
+					"MS" => "Montserrat",
+					"MA" => "Morocco",
+					"MZ" => "Mozambique",
+					"MM" => "Union Of Myanmar",
+					"NA" => "Namibia",
+					"NR" => "Nauru Island",
+					"NP" => "Nepal",
+					"AN" => "Netherlands Antilles",
+					"NC" => "New Caledonia",
+					"NZ" => "New Zealand",
+					"NI" => "Nicaragua",
+					"NE" => "Niger",
+					"NG" => "Nigeria",
+					"NU" => "Niue",
+					"NF" => "Norfolk Island",
+					"MP" => "Mariana Islands, Northern",
+					"OM" => "Oman",
+					"PK" => "Pakistan",
+					"PW" => "Palau Islands",
+					"PS" => "Palestine",
+					"PA" => "Panama",
+					"PG" => "Papua New Guinea",
+					"PY" => "Paraguay",
+					"PE" => "Peru",
+					"PH" => "Philippines",
+					"PN" => "Pitcairn",
+					"PR" => "Puerto Rico",
+					"QA" => "Qatar",
+					"RE" => "Reunion Island",
+					"RU" => "Russian Federation",
+					"RW" => "Rwanda",
+					"WS" => "Samoa",
+					"SH" => "St Helena",
+					"KN" => "St Kitts & Nevis",
+					"LC" => "St Lucia",
+					"PM" => "St Pierre & Miquelon",
+					"VC" => "St Vincent",
+					"SM" => "San Marino",
+					"ST" => "Sao Tome & Principe",
+					"SA" => "Saudi Arabia",
+					"SN" => "Senegal",
+					"SC" => "Seychelles",
+					"SL" => "Sierra Leone",
+					"SG" => "Singapore",
+					"SB" => "Solomon Islands",
+					"SO" => "Somalia",
+					"ZA" => "South Africa",
+					"GS" => "South Georgia and South Sandwich",
+					"LK" => "Sri Lanka",
+					"SD" => "Sudan",
+					"SR" => "Suriname",
+					"SJ" => "Svalbard and Jan Mayen",
+					"SZ" => "Swaziland",
+					"SY" => "Syrian Arab Republic",
+					"TW" => "Taiwan, Republic of China",
+					"TJ" => "Tajikistan",
+					"TZ" => "Tanzania",
+					"TH" => "Thailand",
+					"TL" => "Timor Leste",
+					"TG" => "Togo",
+					"TK" => "Tokelau",
+					"TO" => "Tonga",
+					"TT" => "Trinidad & Tobago",
+					"TN" => "Tunisia",
+					"TM" => "Turkmenistan",
+					"TC" => "Turks And Caicos Islands",
+					"TV" => "Tuvalu",
+					"UG" => "Uganda",
+					"AE" => "United Arab Emirates",
+					"UM" => "US Minor Outlying Islands",
+					"US" => "USA",
+					"HV" => "Upper Volta",
+					"UY" => "Uruguay",
+					"UZ" => "Uzbekistan",
+					"VU" => "Vanuatu",
+					"VE" => "Venezuela",
+					"VN" => "Vietnam",
+					"VG" => "Virgin Islands (British)",
+					"VI" => "Virgin Islands (US)",
+					"WF" => "Wallis And Futuna Islands",
+					"EH" => "Western Sahara",
+					"YE" => "Yemen Arab Rep.",
+					"YD" => "Yemen Democratic",
+					"ZR" => "Zaire",
+					"ZM" => "Zambia",
+					"ZW" => "Zimbabwe"
+				)
+			)
 		);
 	}
 
-	public static get_country_name($abbr)
-	{
-		$countries = self::get_countries();
-		if (isset($countries[$abbr])) {
-			return $countries[$abbr];
-		} else {
-			return '';
-		}
-	}
-
-	public static get_region_from_country($abbr)
-	{
-		$eu  = array();
-		if ($abbr == "UK") {
-			return "uk";
-		} elseif (in_array($abbr, $eu)) {
-			return "eu";
-		} else {
-			return "row";
-		}
-	}
 
 	/**************************
 	 * PLUGIN ADMINISTRATION  *
@@ -1487,7 +1614,7 @@ class PayPalPlugin
 		if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["bands"]) || !count($options["shipping_settings"]["bands"])) {
 			$bands = array();
 			$empty_band = array('name' => '', 'default' => 1);
-			foreach ($regions as $region_code => $region_name) {
+			foreach ($regions as $region_code => $region_data) {
 				$empty_band["shipping_one_" . $region_code] = '';
 				$empty_band["shipping_multiple_" . $region_code] = '';
 			}
@@ -1501,8 +1628,8 @@ class PayPalPlugin
 			printf('<p><label for="pp_band_name_%d">Name:</label><input type="text" name="paypal_options[shipping_settings][band][name_%d]" id="pp_band_name_%d" value="%s" size="20" /></p>', $i, $i, $i, $bands[$i]["name"]);
 			$chckd = ($bands[$i]["default"] || count($bands) == 1)? ' checked="checked"': '';
 			printf('<p><label for="pp_band_default_%s" class="wide">Check this box to make this the default postage band: <input type="radio" id="pp_band_default_%s" class="default-band" name="paypal_options[shipping_settings][default_band]" value="%s"%s></label></p>', $i, $i, $i, $chckd);
-			foreach ($regions as $region_code => $region_name) {
-				printf('<fieldset><legend>%s</legend>', $region_name);
+			foreach ($regions as $region_code => $region_data) {
+				printf('<fieldset><legend>%s</legend>', $region_data["name"]);
 				$val = self::dec2($bands[$i][$region_code]["shipping_one"]);
 				printf('<p><label for="pp_shipping_one_%s_%d">First item:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_one_%s_%d]" id="pp_shipping_one_%s_%d" value="%s" size="7" class="currency" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
 				$val = self::dec2($bands[$i][$region_code]["shipping_multiple"]);
@@ -1523,7 +1650,7 @@ class PayPalPlugin
 		$details = array();
 		if (isset($band["name_" . $band_id]) && trim($band["name_" . $band_id]) != "") {
 			$regions = self::get_shipping_regions();
-			foreach ($regions as $region_code => $region_name) {
+			foreach ($regions as $region_code => $region_data) {
 				if (isset($band["shipping_one_" . $region_code . "_" . $band_id]) && 
 					trim($band["shipping_one_" . $region_code . "_" . $band_id]) != "" &&
 					isset($band["shipping_multiple_" . $region_code . "_" . $band_id]) &&
@@ -1552,7 +1679,7 @@ class PayPalPlugin
 		if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["weights"]) || !count($options["shipping_settings"]["weights"])) {
 			$weights = array();
 			$empty_weight = array('to_weight_0' => '', "default" => 0);
-			foreach ($regions as $region_code => $region_name) {
+			foreach ($regions as $region_code => $region_data) {
 				$empty_weight["shipping_weight_" . $region_code . "_0"] = '';
 			}
 			$weights[] = $empty_weight;
@@ -1563,9 +1690,9 @@ class PayPalPlugin
 		for ($i = 0; $i < count($weights); $i++) {
 			printf('<fieldset class="shipping_weight" data-weight-id="%d" id="weight_%d"><input type="hidden" name="paypal_options[shipping_settings][weight_ids][]" value="%s" />', $i, $i, $i);
 			printf('<p><label for="pp_to_weight_%d">Up to and including items weighing: </label><input type="text" name="paypal_options[shipping_settings][weight][to_weight_%d]" id="pp_to_weight_%d" value="%s" size="5" />g</p>', $i, $i, $i, $weights[$i]["to_weight"]);
-			foreach ($regions as $region_code => $region_name) {
+			foreach ($regions as $region_code => $region_data) {
 				$val = self::dec2($weights[$i]["shipping_weight_" . $region_code]);
-				printf('<p><label for="pp_shipping_weight_%s_%d">%s</label><input type="text" name="paypal_options[shipping_settings][weight][shipping_weight_%s_%d]", id="pp_shipping_weight_%s_%d" value="%.02f" size="7" class="currency" /></p>', $region_code, $i, $region_name, $region_code, $i, $region_code, $i, $weights[$i][$region_code]);
+				printf('<p><label for="pp_shipping_weight_%s_%d">%s</label><input type="text" name="paypal_options[shipping_settings][weight][shipping_weight_%s_%d]", id="pp_shipping_weight_%s_%d" value="%.02f" size="7" class="currency" /></p>', $region_code, $i, $region_data["name"], $region_code, $i, $region_code, $i, $weights[$i][$region_code]);
 			}
 			printf('<p class="delete-weight" id="delete-button-%d"><a href="#" class="delete-weight-button button-secondary" data-weight-id="%d">delete this setting</a></p></fieldset>', $i, $i);
 		}
@@ -1580,15 +1707,15 @@ class PayPalPlugin
 		$details = array();
 		if (isset($weight["to_weight_" . $weight_id]) && intval($weight["to_weight_" . $weight_id]) > 0) {
 			$regions = self::get_shipping_regions();
-			foreach ($regions as $region_code => $region_name) {
+			$region_prices = array();
+			foreach ($regions as $region_code => $region_data) {
 				if (isset($weight["shipping_weight_" . $region_code . "_" . $weight_id]) && 
 					trim($weight["shipping_weight_" . $region_code . "_" . $weight_id]) != "") {
-					$details[$region_code] = intval($weight["shipping_weight_" . $region_code . "_" . $weight_id]);
+					$region_prices[$region_code] = intval($weight["shipping_weight_" . $region_code . "_" . $weight_id]);
 				}
 			}
-			if (count($details) == count($regions)) {
-				$details["to_weight"] = $weight["to_weight_" . $weight_id];
-				return $details;
+			if (count($region_prices) == count($regions)) {
+				return array("to_weight" => $weight["to_weight_" . $weight_id], "regions" => $region_prices);
 			} else {
 				return array();
 			}
@@ -1603,17 +1730,6 @@ class PayPalPlugin
 		return array(
 			"bands" => "postage bands", 
 			"weights" => "item weights"
-		);
-	}
-	/**
-	 * gets supported shipping regions
-	 */
-	private static function get_shipping_regions()
-	{
-		return array(
-			'uk' => 'UK', 
-			'eu' => 'European Union', 
-			'row' => 'Rest of the World'
 		);
 	}
 
