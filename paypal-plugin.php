@@ -1071,6 +1071,44 @@ class PayPalPlugin
 			}
 		}
 	}
+/*
+International Zones - Europe
+
+Azores (EU) Balearic Islands (EU), Belarus, Belgium (EU), Bosnia Herzegovina, Bulgaria (EU)
+Canary Islands, Corsica (EU), Croatia, Cyprus (EU), Czech Republic (EU)
+Denmark (EU)
+Estonia (EU)
+Faroe Islands, Finland (EU), France (EU)
+Georgia, Germany (EU), Gibraltar (EU), Greece (EU), Greenland
+Hungary (EU)
+Iceland, Irish Republic (EU), Italy (EU)
+Kzakhstan, Kosovo, Kyrgystan
+Latvia (EU), Liechtenstein, Lithuania (EU), Luxumbourg (EU)
+Macedonia, Madeira (EU), Malta (EU), Moldova, Monaco (EU), Montenegro
+Netherlands (EU), Norway
+Poland (EU), Portugal (EU)
+Romania (EU), Russia
+San Marino, Serbia, Slovakia (EU), Slovenia (EU), Spain (EU), Spitzbergen, Sweden (EU), Switzerland
+Tajikistan, Turkey, Turkmenistan
+Ukraine, Uzbekistan
+Vatican City State
+World Zone 2
+
+Australia
+Belau (Palau)
+China )People's Republic of, including Tibet)
+East Timor
+Fiji, French Southern and Antartic Territories*, French Polynesia
+Guam
+Japan
+Kiribati, Korea (Democratic People's Republic), Korea (Republic of)
+Marshall Islands, Micronesia (Federated States), Mongolia
+Nauru Island, New Caledonia, New Zealand, New Zealand Island Territories, Norfolk Island, North Marina Island
+Papua New Guinea, Philippines, Pitcairn Island
+Samoa (American), Solomon Islands
+Taiwan, Tonga, Tuvalu
+Vanuatu
+Wake Island, Wallis and Futuna Islands, Western Samoa
 
 	/**
 	 * gets supported shipping regions
@@ -1085,14 +1123,14 @@ class PayPalPlugin
 				)
 			), 
 			'eu' => array(
-				'name' => 'European Union', 
+				'name' => 'Europe (EU)', 
 				'countries' => array(
-					"AL" => "Albania",
 					"AT" => "Austria",
+					"AX" => "Azores",
+					"BI" => "Balearic Islands",
 					"BE" => "Belgium",
-					"BA" => "Bosnia/Hercegovina",
 					"BG" => "Bulgaria",
-					"HR" => "Croatia",
+					"CS" => "Corsica",
 					"CY" => "Cyprus",
 					"CZ" => "Czech Republic",
 					"DK" => "Denmark",
@@ -1103,53 +1141,75 @@ class PayPalPlugin
 					"GI" => "Gibraltar",
 					"GR" => "Greece",
 					"HU" => "Hungary",
-					"IS" => "Iceland",
-					"IE" => "Ireland",
+					"IE" => "Irish Republic",
 					"IT" => "Italy",
 					"LV" => "Latvia",
-					"LI" => "Liechtenstein",
 					"LT" => "Lithuania",
 					"LU" => "Luxembourg",
-					"MK" => "Macedonia",
+					"MI" => "Madeira"
 					"MT" => "Malta",
 					"MC" => "Monaco",
 					"NL" => "Netherlands",
-					"NO" => "Norway",
 					"PL" => "Poland",
 					"PT" => "Portugal",
 					"RO" => "Romania",
 					"SK" => "Slovakia",
 					"SI" => "Slovenia",
 					"ES" => "Spain",
-					"SE" => "Sweden",
-					"CH" => "Switzerland",
-					"TR" => "Turkey",
-					"UA" => "Ukraine",
-					"VA" => "Vatican City State",
-					"YU" => "Yugoslavia"
+					"SE" => "Sweden"
 				)
 			),
-			'row' => array(
-				'name' => 'Rest of the World',
+			'eo' => array(
+				'name' => "Europe (non-EU)",
+				'countries' => array(
+					"AL" => "Albania",
+					"AD" => "Andorra",
+					"AM" => "Armenia",
+					"AZ" => "Azerbaijan",
+					"BY" => "Belarus",
+					"BA" => "Bosnia Herzegovina",
+					"CW" => "Canary Islands"
+					"HR" => "Croatia",
+					"FO" => "Faroe Islands",
+					"GE" => "Georgia",
+					"GL" => "Greenland",
+					"IS" => "Iceland",
+					"KZ" => "Kazakhstan",
+					"XK" => "Kosovo",
+					"KG" => "Kyrgyzstan",
+					"LI" => "Liechtenstein",
+					"MK" => "Macedonia",
+					"MD" => "Moldova",
+					"ME" => "Montenegro"
+					"NO" => "Norway",
+					"RU" => "Russia",
+					"SM" => "San Marino",
+					"RS" => "Serbia"
+					"CH" => "Switzerland",
+					"TJ" => "Tajikistan",
+					"TR" => "Turkey",
+					"TM" => "Turkmenistan",
+					"UA" => "Ukraine",
+					"UZ" => "Uzbekistan",
+					"VA" => "Vatican City State"
+				)
+			),
+			'row1' => array(
+				'name' => 'World Zone 1',
 				'countries' => array(
 					"AF" => "Afghanistan",
 					"DZ" => "Algeria",
 					"AS" => "American Samoa",
-					"AD" => "Andorra",
 					"AO" => "Angola",
 					"AI" => "Anguilla",
 					"AQ" => "Antarctica",
 					"AG" => "Antigua & Barbuda",
 					"AR" => "Argentina",
-					"AM" => "Armenia",
 					"AW" => "Aruba",
-					"AU" => "Australia",
-					"AZ" => "Azerbaijan",
 					"BS" => "Bahamas",
 					"BH" => "Bahrain",
 					"BD" => "Bangladesh",
 					"BB" => "Barbados",
-					"BY" => "Belarus",
 					"BZ" => "Belize",
 					"BJ" => "Benin",
 					"BM" => "Bermuda",
@@ -1158,7 +1218,6 @@ class PayPalPlugin
 					"BW" => "Botswana",
 					"BV" => "Bouvet Island",
 					"BR" => "Brazil",
-					"IO" => "British Indian Ocean Territory",
 					"BN" => "Brunei Darussalam",
 					"BF" => "Burkina Faso",
 					"BI" => "Burundi",
@@ -1171,13 +1230,10 @@ class PayPalPlugin
 					"TD" => "Chad",
 					"CL" => "Chile",
 					"CN" => "China, People's Republic of",
-					"CX" => "Christmas Island",
-					"CC" => "Cocos Islands",
 					"CO" => "Colombia",
 					"KM" => "Comoros",
 					"CG" => "Congo",
 					"CD" => "Congo, Democratic Republic",
-					"CK" => "Cook Islands",
 					"CR" => "Costa Rica",
 					"CI" => "Cote d'Ivoire",
 					"CU" => "Cuba",
@@ -1192,16 +1248,10 @@ class PayPalPlugin
 					"ER" => "Eritrea",
 					"ET" => "Ethiopia",
 					"FK" => "Falkland Islands",
-					"FO" => "Faroe Islands",
-					"FJ" => "Fiji",
 					"GF" => "French Guiana",
-					"PF" => "French Polynesia",
-					"TF" => "French South Territories",
 					"GA" => "Gabon",
 					"GM" => "Gambia",
-					"GE" => "Georgia",
 					"GH" => "Ghana",
-					"GL" => "Greenland",
 					"GD" => "Grenada",
 					"GP" => "Guadeloupe",
 					"GU" => "Guam",
@@ -1222,19 +1272,14 @@ class PayPalPlugin
 					"JP" => "Japan",
 					"JT" => "Johnston Island",
 					"JO" => "Jordan",
-					"KZ" => "Kazakhstan",
 					"KE" => "Kenya",
-					"KI" => "Kiribati",
 					"KP" => "Korea, Democratic Peoples Republic",
 					"KR" => "Korea, Republic of",
 					"KW" => "Kuwait",
-					"KG" => "Kyrgyzstan",
-					"LA" => "Lao People's Democratic Republic",
 					"LB" => "Lebanon",
 					"LS" => "Lesotho",
 					"LR" => "Liberia",
 					"LY" => "Libyan Arab Jamahiriya",
-					"MO" => "Macau",
 					"MG" => "Madagascar",
 					"MW" => "Malawi",
 					"MY" => "Malaysia",
@@ -1247,53 +1292,40 @@ class PayPalPlugin
 					"YT" => "Mayotte",
 					"MX" => "Mexico",
 					"FM" => "Micronesia",
-					"MD" => "Moldavia",
 					"MN" => "Mongolia",
 					"MS" => "Montserrat",
 					"MA" => "Morocco",
 					"MZ" => "Mozambique",
 					"MM" => "Union Of Myanmar",
 					"NA" => "Namibia",
-					"NR" => "Nauru Island",
 					"NP" => "Nepal",
 					"AN" => "Netherlands Antilles",
-					"NC" => "New Caledonia",
-					"NZ" => "New Zealand",
 					"NI" => "Nicaragua",
 					"NE" => "Niger",
 					"NG" => "Nigeria",
-					"NU" => "Niue",
-					"NF" => "Norfolk Island",
 					"MP" => "Mariana Islands, Northern",
 					"OM" => "Oman",
 					"PK" => "Pakistan",
 					"PW" => "Palau Islands",
 					"PS" => "Palestine",
 					"PA" => "Panama",
-					"PG" => "Papua New Guinea",
 					"PY" => "Paraguay",
 					"PE" => "Peru",
 					"PH" => "Philippines",
-					"PN" => "Pitcairn",
 					"PR" => "Puerto Rico",
 					"QA" => "Qatar",
 					"RE" => "Reunion Island",
-					"RU" => "Russian Federation",
 					"RW" => "Rwanda",
-					"WS" => "Samoa",
 					"SH" => "St Helena",
 					"KN" => "St Kitts & Nevis",
 					"LC" => "St Lucia",
 					"PM" => "St Pierre & Miquelon",
 					"VC" => "St Vincent",
-					"SM" => "San Marino",
 					"ST" => "Sao Tome & Principe",
 					"SA" => "Saudi Arabia",
 					"SN" => "Senegal",
 					"SC" => "Seychelles",
 					"SL" => "Sierra Leone",
-					"SG" => "Singapore",
-					"SB" => "Solomon Islands",
 					"SO" => "Somalia",
 					"ZA" => "South Africa",
 					"GS" => "South Georgia and South Sandwich",
@@ -1304,25 +1336,19 @@ class PayPalPlugin
 					"SZ" => "Swaziland",
 					"SY" => "Syrian Arab Republic",
 					"TW" => "Taiwan, Republic of China",
-					"TJ" => "Tajikistan",
 					"TZ" => "Tanzania",
 					"TH" => "Thailand",
 					"TL" => "Timor Leste",
 					"TG" => "Togo",
-					"TK" => "Tokelau",
-					"TO" => "Tonga",
 					"TT" => "Trinidad & Tobago",
 					"TN" => "Tunisia",
-					"TM" => "Turkmenistan",
 					"TC" => "Turks And Caicos Islands",
-					"TV" => "Tuvalu",
 					"UG" => "Uganda",
 					"AE" => "United Arab Emirates",
 					"UM" => "US Minor Outlying Islands",
 					"US" => "USA",
 					"HV" => "Upper Volta",
 					"UY" => "Uruguay",
-					"UZ" => "Uzbekistan",
 					"VU" => "Vanuatu",
 					"VE" => "Venezuela",
 					"VN" => "Vietnam",
@@ -1335,6 +1361,35 @@ class PayPalPlugin
 					"ZR" => "Zaire",
 					"ZM" => "Zambia",
 					"ZW" => "Zimbabwe"
+				)
+			),
+			'row1' => array(
+				"name" => "World Zone 2",
+				"countries" => array(
+					"AU" => "Australia",
+					"IO" => "British Indian Ocean Territory",
+					"CX" => "Christmas Island",
+					"CC" => "Cocos Islands",
+					"CK" => "Cook Islands",
+					"FJ" => "Fiji",
+					"PF" => "French Polynesia",
+					"TF" => "French South Territories",
+					"KI" => "Kiribati",
+					"LA" => "Lao People's Democratic Republic",
+					"MO" => "Macau",
+					"NR" => "Nauru Island",
+					"NC" => "New Caledonia",
+					"NZ" => "New Zealand",
+					"NU" => "Niue",
+					"NF" => "Norfolk Island",
+					"PG" => "Papua New Guinea",
+					"PN" => "Pitcairn",
+					"WS" => "Samoa",
+					"SG" => "Singapore",
+					"SB" => "Solomon Islands",
+					"TK" => "Tokelau",
+					"TO" => "Tonga",
+					"TV" => "Tuvalu"
 				)
 			)
 		);
