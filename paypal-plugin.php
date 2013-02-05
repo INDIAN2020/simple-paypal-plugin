@@ -1071,44 +1071,6 @@ class PayPalPlugin
 			}
 		}
 	}
-/*
-International Zones - Europe
-
-Azores (EU) Balearic Islands (EU), Belarus, Belgium (EU), Bosnia Herzegovina, Bulgaria (EU)
-Canary Islands, Corsica (EU), Croatia, Cyprus (EU), Czech Republic (EU)
-Denmark (EU)
-Estonia (EU)
-Faroe Islands, Finland (EU), France (EU)
-Georgia, Germany (EU), Gibraltar (EU), Greece (EU), Greenland
-Hungary (EU)
-Iceland, Irish Republic (EU), Italy (EU)
-Kzakhstan, Kosovo, Kyrgystan
-Latvia (EU), Liechtenstein, Lithuania (EU), Luxumbourg (EU)
-Macedonia, Madeira (EU), Malta (EU), Moldova, Monaco (EU), Montenegro
-Netherlands (EU), Norway
-Poland (EU), Portugal (EU)
-Romania (EU), Russia
-San Marino, Serbia, Slovakia (EU), Slovenia (EU), Spain (EU), Spitzbergen, Sweden (EU), Switzerland
-Tajikistan, Turkey, Turkmenistan
-Ukraine, Uzbekistan
-Vatican City State
-World Zone 2
-
-Australia
-Belau (Palau)
-China )People's Republic of, including Tibet)
-East Timor
-Fiji, French Southern and Antartic Territories*, French Polynesia
-Guam
-Japan
-Kiribati, Korea (Democratic People's Republic), Korea (Republic of)
-Marshall Islands, Micronesia (Federated States), Mongolia
-Nauru Island, New Caledonia, New Zealand, New Zealand Island Territories, Norfolk Island, North Marina Island
-Papua New Guinea, Philippines, Pitcairn Island
-Samoa (American), Solomon Islands
-Taiwan, Tonga, Tuvalu
-Vanuatu
-Wake Island, Wallis and Futuna Islands, Western Samoa
 
 	/**
 	 * gets supported shipping regions
@@ -1146,7 +1108,7 @@ Wake Island, Wallis and Futuna Islands, Western Samoa
 					"LV" => "Latvia",
 					"LT" => "Lithuania",
 					"LU" => "Luxembourg",
-					"MI" => "Madeira"
+					"MI" => "Madeira",
 					"MT" => "Malta",
 					"MC" => "Monaco",
 					"NL" => "Netherlands",
@@ -1168,7 +1130,7 @@ Wake Island, Wallis and Futuna Islands, Western Samoa
 					"AZ" => "Azerbaijan",
 					"BY" => "Belarus",
 					"BA" => "Bosnia Herzegovina",
-					"CW" => "Canary Islands"
+					"CW" => "Canary Islands",
 					"HR" => "Croatia",
 					"FO" => "Faroe Islands",
 					"GE" => "Georgia",
@@ -1180,11 +1142,11 @@ Wake Island, Wallis and Futuna Islands, Western Samoa
 					"LI" => "Liechtenstein",
 					"MK" => "Macedonia",
 					"MD" => "Moldova",
-					"ME" => "Montenegro"
+					"ME" => "Montenegro",
 					"NO" => "Norway",
 					"RU" => "Russia",
 					"SM" => "San Marino",
-					"RS" => "Serbia"
+					"RS" => "Serbia",
 					"CH" => "Switzerland",
 					"TJ" => "Tajikistan",
 					"TR" => "Turkey",
@@ -1363,7 +1325,7 @@ Wake Island, Wallis and Futuna Islands, Western Samoa
 					"ZW" => "Zimbabwe"
 				)
 			),
-			'row1' => array(
+			'row2' => array(
 				"name" => "World Zone 2",
 				"countries" => array(
 					"AU" => "Australia",
@@ -1871,6 +1833,7 @@ Wake Island, Wallis and Futuna Islands, Western Samoa
 			} else {
 				$bands = $defaults["shipping_settings"]["bands"];
 			}
+			usort($bands, array('uol_options', 'order_shipping_bands'));
 			$options["shipping_settings"]["bands"] = $bands;
 			unset($options["shipping_settings"]["band_ids"]);
 			unset($options["shipping_settings"]["band"]);
@@ -1887,6 +1850,7 @@ Wake Island, Wallis and Futuna Islands, Western Samoa
 			} else {
 				$weights = $defaults["shipping_settings"]["weights"];
 			}
+			usort($weights, array('uol_options', 'order_shipping_weights'));
 			$options["shipping_settings"]["weights"] = $weights;
 			unset($options["shipping_settings"]["weight_ids"]);
 			unset($options["shipping_settings"]["weight"]);
@@ -2100,27 +2064,31 @@ PayPalPlugin::register();
 
 /**
  * shipping methods classes
+ * shiping methods should eventually be handled by classes
  */
 
-class PayPal_Shipping_Method
+interface PayPal_Shipping_Method
 {
-	function __construct() {}
-	function settings_form() {}
-	function validate_settings() {}
-	function item_form() {}
+	public static function settings_form();
+	public static function validate_settings();
+	public static function put_in_order($a, $b);
+	public static function item_form();
 }
 
-class pp_bands extends PayPal_Shipping_Method
+class pp_method_bands implements PayPal_Shipping_Method
 {
-	function settings_form()
+	public static function settings_form()
 	{
 
 	}
-	function validate_settings()
+	public static function validate_settings()
 	{
 
 	}
-	function item_form()
+	public static function put_in_order($a, $b)
+	{
+	}
+	public static function item_form()
 	{
 
 	}
