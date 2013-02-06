@@ -34,6 +34,10 @@ class PayPalPlugin
 	/* plugin version */
 	public static $plugin_version = "1.0";
 
+	/* paypal URLs */
+	public static $paypal_url = 'https://www.paypal.com/cgi-bin/webscr';
+	public static $paypal_sandbox_url = 'https://www.sandbox.paypal.com/cgi-bin/webscr';
+
 	/**************************
 	 * PLUGIN CONFIGURATION   *
 	 **************************/
@@ -92,7 +96,7 @@ class PayPalPlugin
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
 		$defaults = self::get_paypal_options();
-		update_option('paypal_options', $defaults);
+		update_option('sppp_options', $defaults);
 	}
 	
 	/**
@@ -105,7 +109,7 @@ class PayPalPlugin
 		$sql = "DROP TABLE IF EXISTS `" . $tablename . "`;";
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
-		delete_option('paypal_options');
+		delete_option('sppp_options');
 	}
 
 	/**
@@ -143,7 +147,7 @@ class PayPalPlugin
 		}
 		if (is_admin()){
 			wp_enqueue_style("ppp-admin-css", plugins_url("css/admin.css", __FILE__)); 
- 			wp_enqueue_script("ppp-admin-css", plugins_url("js/admin.js", __FILE__), array("jquery"), self::$plugin_version, true);
+ 			wp_enqueue_script("ppp-admin-js", plugins_url("js/admin.js", __FILE__), array('jquery', 'media'), self::$plugin_version, true);
 		}
 	}
 
@@ -825,22 +829,7 @@ class PayPalPlugin
 	}
 
 	/**
-	 * helper function to calculate total shipping cost
-	 */
-	private static function calculate_shipping($data)
-	{
-		$options = self::get_paypal_options();
-		if ($options["shipping_method"] == "bands") {
-
-		} elseif ($options["shipping_method"] == "weights") {
-
-		} else {
-			return 0;
-		}
-	}
-
-	/**
-	 *elper function used to determine whether an item can be purchased
+	 * helper function used to determine whether an item can be purchased
 	 */
 	private static function can_be_purchased($item)
 	{
@@ -1379,16 +1368,21 @@ class PayPalPlugin
 	 */
 	public static function register_paypal_options()
 	{
-		register_setting('paypal_options', 'paypal_options', array("PayPalPlugin", "validate_options"));
+		register_setting('sppp_options', 'sppp_options', array("PayPalPlugin", "validate_options"));
 		/* Paypal section */
 		add_settings_section('paypal_section', 'Paypal Settings', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('paypal_email', 'Paypal email address', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_email"));
-		add_settings_field('paypal_url', 'Paypal URL', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_url", "size" => 50));
-		add_settings_field('paypal_ipn_email', 'IPN monitor email address', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_email", "desc" => "This email address will get reports of all Instant Payment Notifications from Paypal."));
+		//add_settings_field('paypal_url', 'Paypal URL', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_url", "size" => 50));
+		add_settings_field('paypal_ipn_email', 'IPN monitor email address', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_ipn_email", "desc" => "This email address will get reports of all Instant Payment Notifications from Paypal."));
 		add_settings_field('paypal_currency', 'Paypal Currency', array("PayPalPlugin", 'setting_currency_dropdown_fn'), __FILE__, 'paypal_section');
 		add_settings_field('paypal_sandbox', 'Use Paypal sandbox?', array("PayPalPlugin", 'setting_cbx_fn'), __FILE__, 'paypal_section', array("field" => "paypal_sandbox"));
 		add_settings_field('paypal_sandbox_email', 'Paypal sandbox email address', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_sandbox_email"));
-		add_settings_field('paypal_sandbox_url', 'Paypal sandbox URL', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_sandbox_url", "size" => 50));
+		//add_settings_field('paypal_sandbox_url', 'Paypal sandbox URL', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_sandbox_url", "size" => 50));
+		/* Invoice section */
+		add_settings_section('invoice_section', 'Invoice Settings', array("PayPalPlugin", "section_text_fn"), __FILE__);
+		add_settings_field('invoice_address', 'Invoice address', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'invoice_section', array("field" => "invoice_address", "desc" => "Enter the address for invoices"));
+		add_settings_field('invoice_footer', 'Invoice footer', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'invoice_section', array("field" => "invoice_footer", "desc" => "Enter text used in the footer of invoices"));
+		add_settings_field('logo_url', 'Logo URL', array("PayPalPlugin", 'setting_image_fn'), __FILE__, 'invoice_section', array("field" => "logo_url", "desc" => 'Clicking on the "Insert into Post" button for the image will put the image URL in the box above'));
 		/* Interface section */
 		add_settings_section('cart_section', 'Interface settings', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('supported_post_types', 'Post types to use as products', array("PayPalPlugin", 'setting_posttype_cbx_fn'), __FILE__, 'cart_section', array("field" => "supported_post_types"));
@@ -1400,7 +1394,7 @@ class PayPalPlugin
 		add_settings_field('shipping_settings', 'Shipping Settings', array("PayPalPlugin", 'setting_shipping_fn'), __FILE__, 'shipping_section');
 		
 		add_settings_field('allow_pickup', 'Allow pick-up', array("PayPalPlugin", 'setting_cbx_fn'), __FILE__, 'shipping_section', array("field" => "allow_pickup", "desc" => "Checking this box will allow users to bypass shipping costs and elect to pick up items in person."));
-		add_settings_field('pickup_address', 'Pick-up address', array("PayPalPlugin", 'setting_richtext_fn'), __FILE__, 'shipping_section', array("field" => "pickup_address", "desc" => "Enter the address where items will be available to pick up. Include any other information such as a link to google maps, opening hours, etc."));
+		add_settings_field('pickup_address', 'Pick-up address', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'shipping_section', array("field" => "pickup_address", "desc" => "Enter the address where items will be available to pick up. Include any other information such as a link to google maps, opening hours, etc."));
 		/* VAT secion */
 		add_settings_section('vat_section', 'VAT', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('vat_rate', 'VAT rate', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'vat_section', array("field" => "vat_rate", "size" => 5, "desc" => "Please enter the percentage VAT rate applied to all items."));
@@ -1411,8 +1405,8 @@ class PayPalPlugin
 		add_settings_field('error_msg', 'Paypal error message', array("PayPalPlugin", 'setting_richtext_fn'), __FILE__, 'comms_section', array("field" => "error_msg", "desc" => "This is the text for the page a user is returned to if there is an error with the payment process."));
 		/* JS/CSS section */
 		add_settings_section('enqueue_section', 'Javascript and CSS', array("PayPalPlugin", "section_text_fn"), __FILE__);
-		add_settings_field('enqueue_js', 'Enqueue Javascript', array("PayPalPlugin", 'setting_enqueue_fn'), __FILE__, 'enqueue_section', array("field" => "enqueue_js", "file" => plugin_dir_path('/PayPalPlugin.php') . '/js/PayPalPlugin.js', "desc" => "Check this box if you would like the JavaScript for the plugin to be loaded in the front end. If this box is not checked, you will need to include the script shown below in your theme:"));
-		add_settings_field('enqueue_css', 'Enqueue Javascript', array("PayPalPlugin", 'setting_enqueue_fn'), __FILE__, 'enqueue_section', array("field" => "enqueue_css", "file" => plugin_dir_path('/PayPalPlugin.php') . '/css/PayPalPlugin.css', "desc" => "Check this box if you would like the CSS for the plugin to be loaded in the front end. If this box is not checked, please ensure you add stles to your theme for buttons and other elements. Example styles are given below:"));
+		add_settings_field('enqueue_js', 'Enqueue Javascript', array("PayPalPlugin", 'setting_enqueue_fn'), __FILE__, 'enqueue_section', array("field" => "enqueue_js", "file" => plugins_url('/js/paypal-plugin.js', __FILE__), "desc" => "Check this box if you would like the JavaScript for the plugin to be loaded in the front end."));
+		add_settings_field('enqueue_css', 'Enqueue Javascript', array("PayPalPlugin", 'setting_enqueue_fn'), __FILE__, 'enqueue_section', array("field" => "enqueue_css", "file" => plugins_url('/css/paypal-plugin.css', __FILE__), "desc" => "Check this box if you would like the CSS for the plugin to be loaded in the front end."));
 		
 
 	}
@@ -1423,8 +1417,8 @@ class PayPalPlugin
 	public static function paypal_options_page()
 	{
 		print('<div class="wrap"><div class="icon32" id="icon-options-general"><br /></div><h2>Paypal options</h2><form method="post" action="options.php">');
-		settings_fields('paypal_options');
-		settings_errors('paypal_options');
+		settings_fields('sppp_options');
+		settings_errors('sppp_options');
 		do_settings_sections(__FILE__);
 		print('<p class="submit"><input name="Submit" type="submit" class="button-primary" value="Save Changes" /></p></form></div>');
 	}
@@ -1443,7 +1437,7 @@ class PayPalPlugin
 		$size = (isset($args["size"]))? intval($args["size"]): 30;
 		$options = self::get_paypal_options();
 		$value = isset($options[$field])? $options[$field]: "";
-		printf('<input id="%s" name="paypal_options[%s]" size="%s" type="text" value="%s" />', $field, $field, $size, $value);
+		printf('<input id="%s" name="sppp_options[%s]" size="%s" type="text" value="%s" />', $field, $field, $size, $value);
 		if (isset($args["desc"])) {
 			printf('<p class="field_desc">%s</p>', $args["desc"]);
 		}
@@ -1459,7 +1453,7 @@ class PayPalPlugin
 		$rows = (isset($args["rows"]))? intval($args["rows"]): 6;
 		$options = self::get_paypal_options();
 		$value = isset($options[$field])? $options[$field]: "";
-		printf('<textarea id="%s" name="paypal_options[%s]" cols="%s" rows="%s">%s</textarea>', $field, $field, $cols, $rows, $value);
+		printf('<textarea id="%s" name="sppp_options[%s]" cols="%s" rows="%s">%s</textarea>', $field, $field, $cols, $rows, $value);
 		if (isset($args["desc"])) {
 			printf('<p class="field_desc">%s</p>', $args["desc"]);
 		}
@@ -1479,7 +1473,7 @@ class PayPalPlugin
 		/* options for editor */
 		$options = array(
 			"media_buttons" => false,
-			"textarea_name" => "paypal_options[$field]",
+			"textarea_name" => "sppp_options[$field]",
 			"textarea_rows" => 3,
 			"teeny" => true
 		);
@@ -1503,11 +1497,29 @@ class PayPalPlugin
 		$field = $args["field"];
 		$options = self::get_paypal_options();
 		$chckd = (isset($options[$field]) && $options[$field])? ' checked="checked"': "";
-		printf('<input id="%s" name="paypal_options[%s]" type="checkbox" value="1"%s />', $field, $field, $chckd);
+		printf('<input id="%s" name="sppp_options[%s]" type="checkbox" value="1"%s />', $field, $field, $chckd);
 		if (isset($args["desc"])) {
 			printf('<p class="field_desc">%s</p>', $args["desc"]);
 		}
-	}				
+	}
+
+	/**
+	 * image path input callback
+	 */
+	public static function setting_image_fn($args)
+	{
+		$uploads_dir = wp_upload_dir();
+		$options = self::get_paypal_options();
+		$option_value = (isset($options[$field]) && trim($options[$field ]) != "")? trim($options[$field ]): "";
+		printf('<div id="%s_preview">', $args["field"]);
+		if ($option_value) {
+			$imgpath = str_replace($uploads_dir["baseurl"], $uploads_dir["basedir"], $option_value);
+			if (false !== ($info = @getimagesize($imgpath))) {
+				printf('<img src="%s" />', $option_value);
+			}
+		}
+		printf('</div><input id="%s" type="text" name="sppp_options[%s]" value="%s" /><a class="upload_image_button button-primary" id="btn_%s">upload</a> <a class="clear_image_button button-secondary" rel="%s">clear</a>', $field, $field, $option_value, $field, $field);
+	}			
 
 	/**
 	 * dropdown of pages on the site
@@ -1518,7 +1530,7 @@ class PayPalPlugin
 		$options = self::get_paypal_options();
 		$value = isset($options[$field])? $options[$field]: "";
 		$sel = $value? '': ' selected="selected"';
-		printf('<select name="paypal_options[%s]" id="%s"><option value=""%s>Please select a page</option>', $field, $field, $sel);
+		printf('<select name="sppp_options[%s]" id="%s"><option value=""%s>Please select a page</option>', $field, $field, $sel);
 		$pages = get_pages();
 		foreach ($pages as $p) {
 			$sel = ($p->ID == $value)? ' selected="selected"': '';
@@ -1541,7 +1553,7 @@ class PayPalPlugin
 		$post_types = get_post_types( array("show_ui" => true), "object");
 		foreach ($post_types as $pt) {
 			$chckd = (in_array($pt->name, $value))? ' checked="checked"': '';
-			printf('<p><input type="checkbox" name="paypal_options[%s][]" id="%s-%s" value="%s"%s /> <label for="%s">%s</label></p>', $field, $field, $pt->name, $pt->name, $chckd, $field, $pt->name, $pt->label);
+			printf('<p><input type="checkbox" name="sppp_options[%s][]" id="%s-%s" value="%s"%s /> <label for="%s">%s</label></p>', $field, $field, $pt->name, $pt->name, $chckd, $field, $pt->name, $pt->label);
 		}
 		print('<p class="field_desc">Choose the post types which can be used to sell items. Templates or content for these post types will need to include the relevant shortcodes/function calls.</p>');
 	}
@@ -1554,16 +1566,9 @@ class PayPalPlugin
 		$field = $args["field"];		
 		$options = self::get_paypal_options();
 		$chckd = (isset($options[$field]) && $options[$field])? ' checked="checked"': "";
-		printf('<input id="%s" name="paypal_options[%s]" type="checkbox" value="1"%s />', $field, $field, $chckd);
-
+		printf('<input id="%s" name="sppp_options[%s]" type="checkbox" value="1"%s />', $field, $field, $chckd);
 		if (isset($args["desc"])) {
-			printf('<p class="field_desc">%s</p>', $args["desc"]);
-		}
-		if (isset($args["file"]) && file_exists($args["file"])) {
-			$content = file_get_contents($args["file"]);
-			if ($content) {
-				printf('<pre class="filecontents">%s</pre>', trim(htmlentities($content)));
-			}
+			printf('<p class="field_desc">%s. If you would like to incorporate it into your theme, <a href="%s">you can download an example file here</a>.', $args["desc"], $args["file"]);
 		}
 	}
 
@@ -1576,7 +1581,7 @@ class PayPalPlugin
 		$options = self::get_paypal_options();
 		$currency = (isset($options["paypal_currency"]) && in_array($options["paypal_currency"], array_keys($cur)))? $options["paypal_currency"]: false;
 		$sel = ($currency)? "": ' selected="selected"';
-		printf('<select name="paypal_options[paypal_currency]" id="paypal_currency"><option value=""%s>Please select a currency</option>', $sel);
+		printf('<select name="sppp_options[paypal_currency]" id="paypal_currency"><option value=""%s>Please select a currency</option>', $sel);
 		foreach ($cur as $code => $currency_name) {
 			$sel = ($code == $currency)? ' selected="selected"': '';
 			printf('<option value="%s"%s>%s</option>', $code, $sel, $currency_name);
@@ -1594,12 +1599,12 @@ class PayPalPlugin
 		$methods = self::get_shipping_methods();
 		if (!isset($options["shipping_method"]) || !in_array($options["shipping_method"], array_keys($methods))) {
 			foreach ($methods as $key => $txt) {
-				printf('<p><input type="radio" name="paypal_options[shipping_method]" value="%s" /> Check this box if you want to use %s.</p>', $key, $txt);
+				printf('<p><input type="radio" name="sppp_options[shipping_method]" value="%s" /> Check this box if you want to use %s.</p>', $key, $txt);
 			}
 		} else {
 			$current_method = $options["shipping_method"];
 			$alt_method = ($current_method == "bands")? "weights": "bands";
-			printf('<p>You are currently using <strong>%s</strong> to determine shipping costs. <a href="#" id="switch_method" class="button-secondary">switch to using %s</a><input type="hidden" id="shipping_method" name="paypal_options[shipping_method]" value="%s" /></p>', $methods[$current_method], $methods[$alt_method], $current_method);
+			printf('<p>You are currently using <strong>%s</strong> to determine shipping costs. <a href="#" id="switch_method" class="button-secondary">switch to using %s</a><input type="hidden" id="shipping_method" name="sppp_options[shipping_method]" value="%s" /></p>', $methods[$current_method], $methods[$alt_method], $current_method);
 		}
 	}
 
@@ -1607,7 +1612,7 @@ class PayPalPlugin
 	{
 		$options = self::get_paypal_options();
 		$methods = self::get_shipping_methods();
-		print('<pre>');print_r($options["shipping_settings"]);print('</pre>');
+		//print('<pre>');print_r($options["shipping_settings"]);print('</pre>');
 		if (isset($options["shipping_method"]) && in_array($options["shipping_method"], array_keys($methods))) {
 			$regions = self::get_shipping_regions();
 			printf('<script>var regions = %s;</script>', json_encode($regions));
@@ -1641,16 +1646,16 @@ class PayPalPlugin
 		}
 		print('<div id="shipping-settings"><div id="shipping-bands">');
 		for ($i = 0; $i < count($bands); $i++) {
-			printf('<fieldset class="shipping-band" data-band-id="%s" id="band_%d"><input type="hidden" name="paypal_options[shipping_settings][band_ids][]" value="%s" />', $i, $i, $i);
-			printf('<p><label for="pp_band_name_%d">Name:</label><input type="text" name="paypal_options[shipping_settings][band][name_%d]" id="pp_band_name_%d" value="%s" size="20" /></p>', $i, $i, $i, $bands[$i]["name"]);
+			printf('<fieldset class="shipping-band" data-band-id="%s" id="band_%d"><input type="hidden" name="sppp_options[shipping_settings][band_ids][]" value="%s" />', $i, $i, $i);
+			printf('<p><label for="pp_band_name_%d">Name:</label><input type="text" name="sppp_options[shipping_settings][band][name_%d]" id="pp_band_name_%d" value="%s" size="20" /></p>', $i, $i, $i, $bands[$i]["name"]);
 			$chckd = ($bands[$i]["default"] || count($bands) == 1)? ' checked="checked"': '';
-			printf('<p><label for="pp_band_default_%s" class="wide">Check this box to make this the default postage band: <input type="radio" id="pp_band_default_%s" class="default-band" name="paypal_options[shipping_settings][default_band]" value="%s"%s></label></p>', $i, $i, $i, $chckd);
+			printf('<p><label for="pp_band_default_%s" class="wide">Check this box to make this the default postage band: <input type="radio" id="pp_band_default_%s" class="default-band" name="sppp_options[shipping_settings][default_band]" value="%s"%s></label></p>', $i, $i, $i, $chckd);
 			foreach ($regions as $region_code => $region_data) {
 				printf('<fieldset><legend>%s</legend>', $region_data["name"]);
 				$val = self::dec2($bands[$i][$region_code]["shipping_one"]);
-				printf('<p><label for="pp_shipping_one_%s_%d">First item:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_one_%s_%d]" id="pp_shipping_one_%s_%d" value="%s" size="7" class="currency" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
+				printf('<p><label for="pp_shipping_one_%s_%d">First item:</label><input type="text" name="sppp_options[shipping_settings][band][shipping_one_%s_%d]" id="pp_shipping_one_%s_%d" value="%s" size="7" class="currency" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
 				$val = self::dec2($bands[$i][$region_code]["shipping_multiple"]);
-				printf('<p><label for="pp_shipping_multiple_%s_%d">Subsequent items:</label><input type="text" name="paypal_options[shipping_settings][band][shipping_multiple_%s_%d]" id="pp_shipping_multiple_%s_%d" value="%s" size="7" class="currency" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
+				printf('<p><label for="pp_shipping_multiple_%s_%d">Subsequent items:</label><input type="text" name="sppp_options[shipping_settings][band][shipping_multiple_%s_%d]" id="pp_shipping_multiple_%s_%d" value="%s" size="7" class="currency" /></p>', $region_code, $i, $region_code, $i, $region_code, $i, $val);
 				print('</fieldset>');
 			}
 			printf('<p id="delete-button-%d" class="delete-band"><a href="#" class="delete-band-button button-secondary" data-band-id="%d">delete this band</a>', $i, $i);
@@ -1705,11 +1710,11 @@ class PayPalPlugin
 		}
 		print('<div id="shipping-settings"><div id="shipping-weights">');
 		for ($i = 0; $i < count($weights); $i++) {
-			printf('<fieldset class="shipping_weight" data-weight-id="%d" id="weight_%d"><input type="hidden" name="paypal_options[shipping_settings][weight_ids][]" value="%s" />', $i, $i, $i);
-			printf('<p><label for="pp_to_weight_%d">Up to and including items weighing: </label><input type="text" name="paypal_options[shipping_settings][weight][to_weight_%d]" id="pp_to_weight_%d" value="%s" size="5" />g</p>', $i, $i, $i, $weights[$i]["to_weight"]);
+			printf('<fieldset class="shipping_weight" data-weight-id="%d" id="weight_%d"><input type="hidden" name="sppp_options[shipping_settings][weight_ids][]" value="%s" />', $i, $i, $i);
+			printf('<p><label for="pp_to_weight_%d">Up to and including items weighing: </label><input type="text" name="sppp_options[shipping_settings][weight][to_weight_%d]" id="pp_to_weight_%d" value="%s" size="5" />g</p>', $i, $i, $i, $weights[$i]["to_weight"]);
 			foreach ($regions as $region_code => $region_data) {
 				$val = self::dec2($weights[$i]["shipping_weight_" . $region_code]);
-				printf('<p><label for="pp_shipping_weight_%s_%d">%s</label><input type="text" name="paypal_options[shipping_settings][weight][shipping_weight_%s_%d]", id="pp_shipping_weight_%s_%d" value="%.02f" size="7" class="currency" /></p>', $region_code, $i, $region_data["name"], $region_code, $i, $region_code, $i, $weights[$i][$region_code]);
+				printf('<p><label for="pp_shipping_weight_%s_%d">%s</label><input type="text" name="sppp_options[shipping_settings][weight][shipping_weight_%s_%d]", id="pp_shipping_weight_%s_%d" value="%.02f" size="7" class="currency" /></p>', $region_code, $i, $region_data["name"], $region_code, $i, $region_code, $i, $weights[$i][$region_code]);
 			}
 			printf('<p class="delete-weight" id="delete-button-%d"><a href="#" class="delete-weight-button button-secondary" data-weight-id="%d">delete this setting</a></p></fieldset>', $i, $i);
 		}
@@ -1800,7 +1805,7 @@ class PayPalPlugin
 		}
 		if (isset($options["paypal_sandbox"]) && !is_email($options['paypal_sandbox_email'])) {
 			add_settings_error('paypal_sandbox_email', 'sandbox-email-invalid', "The paypal sandbox email address appears to be invalid", "error");
-			$options['paypal_sandbox_email'] = $defaults["paypal_sandbox_email"];
+			$options['paypal_sandbox_email'] = '';
 		}
 		if (!in_array($options['paypal_currency'], array_keys(self::get_supported_currencies()))) {
 			add_settings_error('paypal_currency', 'invalid-currency', "Please select the currency you will be using");
@@ -1833,7 +1838,7 @@ class PayPalPlugin
 			} else {
 				$bands = $defaults["shipping_settings"]["bands"];
 			}
-			usort($bands, array('uol_options', 'order_shipping_bands'));
+			usort($bands, array('PayPalPlugin', 'order_shipping_bands'));
 			$options["shipping_settings"]["bands"] = $bands;
 			unset($options["shipping_settings"]["band_ids"]);
 			unset($options["shipping_settings"]["band"]);
@@ -1850,7 +1855,7 @@ class PayPalPlugin
 			} else {
 				$weights = $defaults["shipping_settings"]["weights"];
 			}
-			usort($weights, array('uol_options', 'order_shipping_weights'));
+			usort($weights, array('PayPalPlugin', 'order_shipping_weights'));
 			$options["shipping_settings"]["weights"] = $weights;
 			unset($options["shipping_settings"]["weight_ids"]);
 			unset($options["shipping_settings"]["weight"]);
@@ -1861,7 +1866,8 @@ class PayPalPlugin
 		$options["allow_pickup"] = isset($options["allow_pickup"]);
 		$options["pickup_address"] = trim($options["pickup_address"]);
 		if ($options["allow_pickup"] && $options["pickup_address"] == "") {
-			add_settings_error('pickup_address', 'pickup_address', "Please specify a pick-up address");
+			add_settings_error('pickup_address', 'pickup_address', "Please specify a pick-up address if you are going to allow this option");
+			$options["allow_pickup"] = false;
 		}
 		$options["enqueue_js"] = isset($options["enqueue_js"]);
 		$options["enqueue_css"] = isset($options["enqueue_css"]);
@@ -1876,7 +1882,29 @@ class PayPalPlugin
 		$nc = floor(floatval($n) * 100);
 		return sprintf('%0.2f', ($nc / 100));
 	}
-	
+
+	/**
+	 * puts shipping bands in a logical order
+	 */
+	public static function order_shipping_bands($a, $b)
+	{
+		if ($a['uk']["shipping_one"] == $b['uk']["shipping_one"]) {
+			return 0;
+		}
+		return ($a['uk']["shipping_one"] > $b['uk']["shipping_one"])? -1: 1;
+	}
+
+	/**
+	 * puts shipping weights in a logical order
+	 */
+	public static function order_shipping_weights($a, $b)
+	{
+		if ($a["to_weight"] == $b["to_weight"]) {
+			return 0;
+		}
+		return ($a["to_weight"] > $b["to_weight"])? -1: 1;
+	}
+
 	/**
 	 * gets default options
 	 */
@@ -1888,6 +1916,9 @@ class PayPalPlugin
 			"paypal_sandbox_email" => "",
 			"paypal_sandbox_url" => "https://www.sandbox.paypal.com/cgi-bin/webscr",
 			"paypal_currency" => "GBP",
+			"invoice_address" => "",
+			"invoice_footer" => "",
+			"invoice_logo_path" => "",
 			"supported_post_types" => "",
 			"vat_rate" => "20",
 			"allow_pickup" => false,
@@ -1895,7 +1926,7 @@ class PayPalPlugin
 			"shipping_method" => "bands",
 			"shipping_settings" => array()
 		);
-		$options = get_option("paypal_options");
+		$options = get_option("sppp_options");
 		if (isset($options["cart_page_id"])) {
 			$options["cart_url"] = get_permalink($options["cart_page_id"]);
 		} else {
@@ -2042,7 +2073,7 @@ class PayPalPlugin
 	function add_contextual_help()
 	{
 		$help_tabs = array(
-			"settings_page_paypal_options" => array(
+			"settings_page_sppp_options" => array(
 				array(
 					"id" => "help_tab_settings",
 					"title" => "Paypal Settings",
