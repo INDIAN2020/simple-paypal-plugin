@@ -47,6 +47,8 @@ class PayPalPlugin
 	 */
 	public static function register()
 	{
+		/* run upgrade routine */
+		self::upgrade();
 		/* start session */
 		add_action("plugins_loaded", array("PayPalPlugin", "setup_session"), 1);
 		/* process any POSTed content */
@@ -92,7 +94,7 @@ class PayPalPlugin
 	{
 		global $wpdb;
 		$tablename = $wpdb->prefix . "payments";
-		$sql = "CREATE TABLE IF NOT EXISTS `" . $tablename . "` (`ipn_id` int(11) NOT NULL AUTO_INCREMENT, `payment_date` int(11) NOT NULL,`payment_ipn` text NOT NULL) ENGINE=MyISAM DEFAULT CHARSET=utf8;";
+		$sql = "CREATE TABLE IF NOT EXISTS `" . $tablename . "` (`ipn_id` int(11) NOT NULL AUTO_INCREMENT, `payment_date` int(11) NOT NULL DEFAULT '0',`payment_ipn` text NOT NULL DEFAULT '', `invoice_sent` INT(11) NOT NULL DEFAULT '0') ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
 		$defaults = self::get_paypal_options();
@@ -117,7 +119,36 @@ class PayPalPlugin
 	 */
 	public static function upgrade()
 	{
-
+		$currentversion = get_option('sppp_version');
+		if ($currentversion != self::$plugin_version) {
+			switch ($currentversion) {
+				case false:
+					/* upgrade to version 1.0 */
+					global $wpdb;
+					$tablename = $wpdb->prefix . "payments";
+					$query = "ALTER TABLE `$tablename` ADD `invoice_sent` INT(11) NOT NULL DEFAULT '0';";
+					$wpdb->query($query); 
+					$query = "ALTER TABLE  `$tablename` ADD  `ipn_id` INT( 11 ) NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST ;";
+					$wpdb->query($query); 
+					/* re-serialize paypal IPNs as JSON */
+					/*$tablename = $wpdb->prefix . "payments";
+					$payments = $wpdb->get_results("SELECT * FROM $tablename ORDER BY `payment_date` DESC");
+					foreach ($payments as $payment) {
+						$stripn = preg_split('/"/', $payment->payment_ipn);
+						$newipn = array();
+						$i = 1;
+						while ($i < count($stripn)) {
+							$newipn[$stripn[$i]] = $stripn[($i+2)];
+							$i += 4;
+						}
+						$query = $wpdb->prepare("UPDATE $tablename SET `payment_ipn` = '%s' WHERE `ipn_id` = '%d';", json_encode($newipn), $payment->ipn_id);
+						$wpdb->query($query);
+					}*/
+				case "1.0":
+					/* upgrade routine from version 1.0 to 1.1 */
+			}
+			update_option('sppp_version', self::$plugin_version);
+		}
 	}
 
 	/**
@@ -133,6 +164,7 @@ class PayPalPlugin
 		return $links;
 	}
 	
+		
 	/**
 	 * adds script to front end
 	 */
@@ -1372,12 +1404,10 @@ class PayPalPlugin
 		/* Paypal section */
 		add_settings_section('paypal_section', 'Paypal Settings', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('paypal_email', 'Paypal email address', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_email"));
-		//add_settings_field('paypal_url', 'Paypal URL', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_url", "size" => 50));
 		add_settings_field('paypal_ipn_email', 'IPN monitor email address', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_ipn_email", "desc" => "This email address will get reports of all Instant Payment Notifications from Paypal."));
-		add_settings_field('paypal_currency', 'Paypal Currency', array("PayPalPlugin", 'setting_currency_dropdown_fn'), __FILE__, 'paypal_section');
 		add_settings_field('paypal_sandbox', 'Use Paypal sandbox?', array("PayPalPlugin", 'setting_cbx_fn'), __FILE__, 'paypal_section', array("field" => "paypal_sandbox"));
 		add_settings_field('paypal_sandbox_email', 'Paypal sandbox email address', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_sandbox_email"));
-		//add_settings_field('paypal_sandbox_url', 'Paypal sandbox URL', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'paypal_section', array("field" => "paypal_sandbox_url", "size" => 50));
+		add_settings_field('paypal_currency', 'Paypal Currency', array("PayPalPlugin", 'setting_currency_dropdown_fn'), __FILE__, 'paypal_section');
 		/* Invoice section */
 		add_settings_section('invoice_section', 'Invoice Settings', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('invoice_address', 'Invoice address', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'invoice_section', array("field" => "invoice_address", "desc" => "Enter the address for invoices"));
@@ -1389,10 +1419,8 @@ class PayPalPlugin
 		add_settings_field('cart_page_id', 'Page to use as the cart', array("PayPalPlugin", 'setting_pageid_dropdown_fn'), __FILE__, 'cart_section', array("field" => "cart_page_id"));
 		/* Shipping section */
 		add_settings_section('shipping_section', 'Shipping', array("PayPalPlugin", "section_text_fn"), __FILE__);
-
 		add_settings_field('shipping_method', 'Shipping Configuration', array("PayPalPlugin", 'setting_shipping_method_fn'), __FILE__, 'shipping_section');
 		add_settings_field('shipping_settings', 'Shipping Settings', array("PayPalPlugin", 'setting_shipping_fn'), __FILE__, 'shipping_section');
-		
 		add_settings_field('allow_pickup', 'Allow pick-up', array("PayPalPlugin", 'setting_cbx_fn'), __FILE__, 'shipping_section', array("field" => "allow_pickup", "desc" => "Checking this box will allow users to bypass shipping costs and elect to pick up items in person."));
 		add_settings_field('pickup_address', 'Pick-up address', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'shipping_section', array("field" => "pickup_address", "desc" => "Enter the address where items will be available to pick up. Include any other information such as a link to google maps, opening hours, etc."));
 		/* VAT secion */
@@ -1407,8 +1435,6 @@ class PayPalPlugin
 		add_settings_section('enqueue_section', 'Javascript and CSS', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('enqueue_js', 'Enqueue Javascript', array("PayPalPlugin", 'setting_enqueue_fn'), __FILE__, 'enqueue_section', array("field" => "enqueue_js", "file" => plugins_url('/js/paypal-plugin.js', __FILE__), "desc" => "Check this box if you would like the JavaScript for the plugin to be loaded in the front end."));
 		add_settings_field('enqueue_css', 'Enqueue Javascript', array("PayPalPlugin", 'setting_enqueue_fn'), __FILE__, 'enqueue_section', array("field" => "enqueue_css", "file" => plugins_url('/css/paypal-plugin.css', __FILE__), "desc" => "Check this box if you would like the CSS for the plugin to be loaded in the front end."));
-		
-
 	}
 	
 	/**
@@ -1420,7 +1446,7 @@ class PayPalPlugin
 		settings_fields('sppp_options');
 		settings_errors('sppp_options');
 		do_settings_sections(__FILE__);
-		print('<p class="submit"><input name="Submit" type="submit" class="button-primary" value="Save Changes" /></p></form></div>');
+		print('<p class="submit"><input name="Submit" type="submit" class="button-primary" value="Save Changes" /></p></form><p>Simple Paypal Plugin for Wordpress: version ' . get_option('sppp_version') . '</p></div>');
 	}
 
 	/**
@@ -1984,13 +2010,13 @@ class PayPalPlugin
 			$i = 1;
 			while (isset($_POST["item_number" . $i])) {
 				if (isset($_POST["quantity" . $i])) {
-					$paypal = get_paypal_info($_POST["item_number" . $i]);
+					$paypal = self::get_paypal_meta($_POST["item_number" . $i]);
 					if (isset($paypal["stock"]) && (int) $paypal["stock"] != 0) {
 						$paypal["stock"] = (int) $paypal["stock"] - (int) $_POST["quantity" . $i];
 						if ($paypal["stock"] < 0) {
 							$paypal["stock"] = 0;
 						}
-						update_paypal_info($_POST["item_number" . $i], $paypal);
+						update_post_meta($_POST["item_number" . $i], 'paypal', $paypal);
 					}
 				}
 				$i++;
@@ -2009,35 +2035,59 @@ class PayPalPlugin
 	/**
 	 * paypal payments page
 	 */
-	function get_paypal_payments_page()
+	function paypal_payments_page()
 	{
 		global $wpdb;
 		$tablename = $wpdb->prefix . "payments";
-		$payments = $wpdb->get_results("SELECT * FROM $tablename ORDER BY `payment_date` DESC");
-		print('<h2>Paypal payments</h2><table summary="paypal payments" class="widefat"><thead><th>date</th><th>Name</th><th>email</th><th>items</th><th>amount</th></tr></thead><tbody>');
-		$allitems = array();
-		foreach ($payments as $payment) {
-			$ipn = unserialize($payment->payment_ipn);
-			$name = $ipn["first_name"] . " " . $ipn["last_name"];
-			$email = $ipn["payer_email"];
-			$items = array();
-			$item_number = 1;
-			while(isset($ipn["item_name" . $item_number])) {
-				if (!isset($allitems[$ipn["item_name" . $item_number]])) {
-					$allitems[$ipn["item_name" . $item_number]] = 0;
-				}
-				$allitems[$ipn["item_name" . $item_number]]++;
-				$items[] = $ipn["item_name" . $item_number];
-				$item_number++;
+		if (isset($_REQUEST["action"]) && isset($_REQUEST["ipn_id"])) {
+			$payment_details = $wpdb->get_row("SELECT * FROM $tablename WHERE ipn_id = " . $_REQUEST["ipn_id"]);
+			switch ($_REQUEST["action"]) {
+				case "viewPDF":
+				case "sendPDF":
+					break;
+				case "viewIPN":
+					$ipn = unserialize($payment_details->payment_ipn);
+					print('<h2>Paypal payment details</h2><table>');
+					printf('<tr><th scope="row">Name:</th><td>%s %s</td></tr>', $ipn["first_name"], $ipn["last_name"]);
+					printf('<tr><th scope="row">Email</th><td><a href="mailto:%s">%s</a></td></tr>', $ipn["payer_email"], $ipn["payer_email"]);
+					printf('<tr><th scope="row">Payment date:</th><td>%s</td></tr>', date("d/m/Y", $payment_details->payment_date));
+					print('</table>');
+					print('<h3>Full IPN details</h3><table>');
+					foreach ($ipn as $key => $data) {
+						printf('<tr><th scope="row">%s</th><td>%s</td></tr>', $key, $data);
+					}
+					print('</table>');
 			}
-			printf('<tr><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top"><strong>&pound;%s</strong></td></tr>', date("d/m/Y", $payment->payment_date), $name, $email, implode("<br />", $items), $ipn["mc_gross"]);
+
+		} else {
+			$payments = $wpdb->get_results("SELECT * FROM $tablename ORDER BY `payment_date` DESC");
+			print('<h2>Paypal payments</h2><table summary="paypal payments" class="widefat"><thead><th>date</th><th>Name</th><th>email</th><th>items</th><th>amount</th><th>invoice sent</th><th>action</th></tr></thead><tbody>');
+			$allitems = array();
+			foreach ($payments as $payment) {
+				$ipn = json_decode($payment->payment_ipn);
+				$name = $ipn->first_name . " " . $ipn->last_name;
+				$email = $ipn->payer_email;
+				$invoice_sent = (intval($payment->invoice_sent) > 0)? date("d/m/Y", intval($payment->invoice_sent)): '-';
+				$items = array();
+				$item_number = 1;
+				$item_name_prop = "item_name" . $item_number;
+				while(isset($ipn["item_name" . $item_number])) {
+					if (!isset($allitems[$ipn["item_name" . $item_number]])) {
+						$allitems[$ipn["item_name" . $item_number]] = 0;
+					}
+					$allitems[$ipn["item_name" . $item_number]]++;
+					$items[] = $ipn["item_name" . $item_number];
+					$item_number++;
+				}
+				printf('<tr><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top"><strong>&pound;%s</strong></td><td>%s</td><td><a href="%s" class="button-primary">Send Invoice</a><a href="%s" target="pdf" class="button-secondary">View invoice</a><a href="%s" class="button-secondary">view details</a></td></tr>', date("d/m/Y", $payment->payment_date), $name, $email, implode("<br />", $items), $ipn->mc_gross, $invoice_sent, admin_url('tools.php?page=paypal_payments&amp;action=sendPDF&amp;ipn_id=' . $payment->ipn_id), admin_url('tools.php?page=paypal_payments&amp;action=viewPDF&amp;ipn_id=' . $payment->ipn_id), admin_url('tools.php?page=paypal_payments&amp;action=viewIPN&amp;ipn_id=' . $payment->ipn_id));
+			}
+			print('</tbody></table>');
+			print('<h2>Sales summary</h2><table summary="sales summary" class="widefat"><thead><th>item name</th><th>number sold</tr></thead><tbody>');
+			foreach ($allitems as $item_name => $count) {
+				printf('<tr><td>%s</td><td>%s</td></tr>', $item_name, $count);
+			}
+			print('</tbody></table>');
 		}
-		print('</tbody></table>');
-		print('<h2>Sales summary</h2><table summary="sales summary" class="widefat"><thead><th>item name</th><th>number sold</tr></thead><tbody>');
-		foreach ($allitems as $item_name => $count) {
-			printf('<tr><td>%s</td><td>%s</td></tr>', $item_name, $count);
-		}
-		print('</tbody></table>');
 	}
 
 	/**
