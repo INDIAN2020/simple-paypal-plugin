@@ -1418,6 +1418,8 @@ class PayPalPlugin
 		add_settings_field('invoice_address', 'Invoice address', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'invoice_section', array("field" => "invoice_address", "desc" => "Enter the address for invoices"));
 		add_settings_field('invoice_footer', 'Invoice footer', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'invoice_section', array("field" => "invoice_footer", "desc" => "Enter text used in the footer of invoices"));
 		add_settings_field('logo_url', 'Logo URL', array("PayPalPlugin", 'setting_image_fn'), __FILE__, 'invoice_section', array("field" => "logo_url", "desc" => 'Clicking on the "Insert into Post" button for the image will put the image URL in the box above'));
+		add_settings_field('invoice_subject', 'Invoice email subject', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'invoice_section', array("field" => "invoice_subject", "desc" => "Enter text used for the subject line of the email message sent with the invoice"));
+		add_settings_field('invoice_message', 'Invoice email message', array("PayPalPlugin", 'setting_richtext_fn'), __FILE__, 'invoice_section', array("field" => "invoice_message", "desc" => "Enter the text for the email message sent with the invoice. Use <code>{PP_ITEMS}</code> in the message to include the products purchased."));
 		/* Interface section */
 		add_settings_section('cart_section', 'Interface settings', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('supported_post_types', 'Post types to use as products', array("PayPalPlugin", 'setting_posttype_cbx_fn'), __FILE__, 'cart_section', array("field" => "supported_post_types"));
@@ -2045,6 +2047,7 @@ class PayPalPlugin
 		global $wpdb;
 		$tablename = $wpdb->prefix . "payments";
 		if (isset($_REQUEST["action"]) && isset($_REQUEST["ipn_id"])) {
+			$options = get_paypal_options();
 			$payment_details = $wpdb->get_row("SELECT * FROM $tablename WHERE ipn_id = " . $_REQUEST["ipn_id"]);
 			switch ($_REQUEST["action"]) {
 				case "viewPDF":
