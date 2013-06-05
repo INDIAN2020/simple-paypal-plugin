@@ -1413,6 +1413,8 @@ class PayPalPlugin
 		add_settings_field('invoice_address', 'Invoice address', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'invoice_section', array("field" => "invoice_address", "desc" => "Enter the address for invoices"));
 		add_settings_field('invoice_footer', 'Invoice footer', array("PayPalPlugin", 'setting_textbox_fn'), __FILE__, 'invoice_section', array("field" => "invoice_footer", "desc" => "Enter text used in the footer of invoices"));
 		add_settings_field('logo_url', 'Logo URL', array("PayPalPlugin", 'setting_image_fn'), __FILE__, 'invoice_section', array("field" => "logo_url", "desc" => 'Clicking on the "Insert into Post" button for the image will put the image URL in the box above'));
+		add_settings_field('invoice_subject', 'Invoice email subject', array("PayPalPlugin", 'setting_text_fn'), __FILE__, 'invoice_section', array("field" => "invoice_subject", "desc" => "Enter text used for the subject line of the email message sent with the invoice"));
+		add_settings_field('invoice_message', 'Invoice email message', array("PayPalPlugin", 'setting_richtext_fn'), __FILE__, 'invoice_section', array("field" => "invoice_message", "desc" => "Enter the text for the email message sent with the invoice. Use <code>{PP_ITEMS}</code> in the message to include the products purchased."));
 		/* Interface section */
 		add_settings_section('cart_section', 'Interface settings', array("PayPalPlugin", "section_text_fn"), __FILE__);
 		add_settings_field('supported_post_types', 'Post types to use as products', array("PayPalPlugin", 'setting_posttype_cbx_fn'), __FILE__, 'cart_section', array("field" => "supported_post_types"));
@@ -2040,25 +2042,39 @@ class PayPalPlugin
 		global $wpdb;
 		$tablename = $wpdb->prefix . "payments";
 		if (isset($_REQUEST["action"]) && isset($_REQUEST["ipn_id"])) {
+			$options = get_paypal_options();
 			$payment_details = $wpdb->get_row("SELECT * FROM $tablename WHERE ipn_id = " . $_REQUEST["ipn_id"]);
-			switch ($_REQUEST["action"]) {
-				case "viewPDF":
-				case "sendPDF":
-					break;
-				case "viewIPN":
-					$ipn = unserialize($payment_details->payment_ipn);
-					print('<h2>Paypal payment details</h2><table>');
-					printf('<tr><th scope="row">Name:</th><td>%s %s</td></tr>', $ipn["first_name"], $ipn["last_name"]);
-					printf('<tr><th scope="row">Email</th><td><a href="mailto:%s">%s</a></td></tr>', $ipn["payer_email"], $ipn["payer_email"]);
-					printf('<tr><th scope="row">Payment date:</th><td>%s</td></tr>', date("d/m/Y", $payment_details->payment_date));
-					print('</table>');
-					print('<h3>Full IPN details</h3><table>');
-					foreach ($ipn as $key => $data) {
-						printf('<tr><th scope="row">%s</th><td>%s</td></tr>', $key, $data);
-					}
-					print('</table>');
+			$ipn = unserialize($payment_details->payment_ipn);
+			$uploads_dir = wp_upload_dir();
+			if ($payment_details) {
+				switch ($_REQUEST["action"]) {
+					case "viewPDF":
+					case "sendPDF":
+						self::generatePDF($_REQUEST["ipn_id"]);
+						$pdf_url = $uploads_dir["baseurl"] . '/invoices/invoice' . $_REQUEST["ipn_id"] . '.pdf';
+						$pdf_path = $uploads_dir["basepath"] . '/invoices/invoice' . $_REQUEST["ipn_id"] . '.pdf';
+						if ($_REQUEST["action"] == "viewPDF") {
+							header("Location: " . $pdf_url);
+						} else {
+							$attachments = array($pdf_path);
+							$headers = 'From: ' . $options["paypal_email"] . "\r\n" . 'CC: ' . $options["paypal_email"] . "\r\n";
+							add_filter( 'wp_mail_content_type', create_function('', 'return "text/html";') );
+   							wp_mail($ipn["payer_email"], $options["invoice_subject"], $options["invoice_message"], $headers, $attachments);
+						}
+						break;
+					case "viewIPN":
+						print('<h2>Paypal payment details</h2><table>');
+						printf('<tr><th scope="row">Name:</th><td>%s %s</td></tr>', $ipn["first_name"], $ipn["last_name"]);
+						printf('<tr><th scope="row">Email</th><td><a href="mailto:%s">%s</a></td></tr>', $ipn["payer_email"], $ipn["payer_email"]);
+						printf('<tr><th scope="row">Payment date:</th><td>%s</td></tr>', date("d/m/Y", $payment_details->payment_date));
+						print('</table>');
+						print('<h3>Full IPN details</h3><table>');
+						foreach ($ipn as $key => $data) {
+							printf('<tr><th scope="row">%s</th><td>%s</td></tr>', $key, $data);
+						}
+						print('</table>');
+				}
 			}
-
 		} else {
 			$payments = $wpdb->get_results("SELECT * FROM $tablename ORDER BY `payment_date` DESC");
 			print('<h2>Paypal payments</h2><table summary="paypal payments" class="widefat"><thead><th>date</th><th>Name</th><th>email</th><th>items</th><th>amount</th><th>invoice sent</th><th>action</th></tr></thead><tbody>');
@@ -2093,7 +2109,7 @@ class PayPalPlugin
 	/**
 	 * gets an invoice for the sale based on IPN data
 	 */
-	private static function get_invoice($ipn_id)
+	private static function generatePDF($ipn_id)
 	{
 		$id = intVal($ipn_id);
 		global $wpdb;
@@ -2113,7 +2129,7 @@ class PayPalPlugin
 				$items[] = $ipn["item_name" . $item_number];
 				$item_number++;
 			}
-			printf('<tr><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top"><strong>&pound;%s</strong></td></tr>', date("d/m/Y", $payment->payment_date), $name, $email, implode("<br />", $items), $ipn["mc_gross"]);
+
 		}
 	} 
 
