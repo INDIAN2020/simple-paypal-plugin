@@ -965,51 +965,56 @@ class PayPalPlugin
 		$paypal = self::get_paypal_meta($post->ID);
 		$paypal_options = self::get_paypal_options();
 		/* Use nonce for verification */
-		echo '<div class="paypal-options"><input type="hidden" name="paypal_meta" id="paypal_meta" value="' .  wp_create_nonce('paypal_meta') . '" />';
-		/* left column */
-		echo '<div class="left-column"><p><label for="paypal_name">Name of item: </label><input type="text" id="paypal_name" name="paypal_name" value="' . $paypal["name"] . '" size="25" /></p>';
-		echo '<p><label for="paypal_code">Item code: </label><input type="text" id="paypal_code" name="paypal_code" value="' . $paypal["code"] . '" size="25" /></p>';
-		echo '<p><label for="paypal_price">Price: </label><input type="text" id="paypal_price" name="paypal_price" value="' . $paypal["price"] . '" size="5" /></p>';
-		$chckd = (isset($paypal["includes_vat"]) && $paypal["includes_vat"] == true)? ' checked="checked"': '';
-		echo '<p><input type="checkbox" id="includes_vat" name="includes_vat" value="1"' . $chckd . ' /><label for="includes_vat">Check this box if the price includes VAT (otherwise a zero rate of VAT is assumed)</label></p>';
-		echo '</div>';
-		/* right column */
-		echo '<div class="right-column">';
-		if (isset($options["shipping_method"]) && $options["shipping_method"] == "weights") {
-			if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["weights"]) || !count($options["shipping_settings"]["weights"])) {
-				printf('<p><a href="%s">Please configure weight ranges on the paypal plugin options page</a></p>', admin_url('options-general.php?page=paypal_options'));
-			}
-			echo '<p><label for="shipping_weight">Weight: </label><input type="text" id="shipping_weight" name="shipping_weight" value="' . $paypal["weight"] . '" size="5" />g</p>';
-		} else {
-			if (isset($options["shipping_settings"]) && isset($options["shipping_settings"]["bands"]) && count($options["shipping_settings"]["bands"])) {
-				echo '<p><label for="shipping_band">Postage band:</label><select name="shipping_band" id="shipping_band">';
-				foreach ($options["shipping_settings"]["bands"] as $band) {
-					$sel = (isset($paypal["shipping_band"]) && $paypal["shipping_band"] == $band["name"])? ' selected="selected"': '';
-					printf('<option value="%s"%s>%s</option>', $band["name"], $sel, $band["name"]);
+		$methods = self::get_shipping_methods();
+		if (isset($options["shipping_method"]) && in_array($options["shipping_method"], array_keys($methods))) {
+			echo '<div class="paypal-options"><input type="hidden" name="paypal_meta" id="paypal_meta" value="' .  wp_create_nonce('paypal_meta') . '" />';
+			/* left column */
+			echo '<div class="left-column"><p><label for="paypal_name">Name of item: </label><input type="text" id="paypal_name" name="paypal_name" value="' . $paypal["name"] . '" size="25" /></p>';
+			echo '<p><label for="paypal_code">Item code: </label><input type="text" id="paypal_code" name="paypal_code" value="' . $paypal["code"] . '" size="25" /></p>';
+			echo '<p><label for="paypal_price">Price: </label><input type="text" id="paypal_price" name="paypal_price" value="' . $paypal["price"] . '" size="5" /></p>';
+			$chckd = (isset($paypal["includes_vat"]) && $paypal["includes_vat"] == true)? ' checked="checked"': '';
+			echo '<p><input type="checkbox" id="includes_vat" name="includes_vat" value="1"' . $chckd . ' /><label for="includes_vat">Check this box if the price includes VAT (otherwise a zero rate of VAT is assumed)</label></p>';
+			echo '</div>';
+			/* right column */
+			echo '<div class="right-column">';
+			if (isset($options["shipping_method"]) && $options["shipping_method"] == "weights") {
+				if (!isset($options["shipping_settings"]) || !isset($options["shipping_settings"]["weights"]) || !count($options["shipping_settings"]["weights"])) {
+					printf('<p><a href="%s">Please configure weight ranges on the paypal plugin options page</a></p>', admin_url('options-general.php?page=paypal_options'));
 				}
-				echo '</select></p>';
-
+				echo '<p><label for="shipping_weight">Weight: </label><input type="text" id="shipping_weight" name="shipping_weight" value="' . $paypal["weight"] . '" size="5" />g</p>';
 			} else {
-				printf('<p><a href="%s">Please set up some postage bands on the paypal plugin options page</a>.</p>', admin_url('options-general.php?page=paypal_options'));
+				if (isset($options["shipping_settings"]) && isset($options["shipping_settings"]["bands"]) && count($options["shipping_settings"]["bands"])) {
+					echo '<p><label for="shipping_band">Postage band:</label><select name="shipping_band" id="shipping_band">';
+					foreach ($options["shipping_settings"]["bands"] as $band) {
+						$sel = (isset($paypal["shipping_band"]) && $paypal["shipping_band"] == $band["name"])? ' selected="selected"': '';
+						printf('<option value="%s"%s>%s</option>', $band["name"], $sel, $band["name"]);
+					}
+					echo '</select></p>';
+
+				} else {
+					printf('<p><a href="%s">Please set up some postage bands on the paypal plugin options page</a>.</p>', admin_url('options-general.php?page=paypal_options'));
+				}
 			}
+			echo '<p><label for="paypal_stock">Stock: </label><input type="text" id="paypal_stock" name="paypal_stock" value="' . $paypal["stock"] . '" size="5" /></p></div><div class="clear">&nbsp;</div>';
+			/* short description - use wp-editor but capture output in a buffer */
+			ob_start();
+			/* options for editor */
+			$options = array(
+				"media_buttons" => false,
+				"textarea_name" => "paypal_description",
+				"textarea_rows" => 3,
+				"teeny" => true
+			);
+			/* "echo" the editor */
+			wp_editor($paypal["description"], "paypal_description", $options );
+			/* get the output buffer */
+			$editor = ob_get_contents();
+			/* clean the output buffer */
+			ob_clean();
+			printf('<p>Short Item Description:</p><div>%s</div><p><em>Include information such as dimensions, special ordering instructions, estimated delivery times, etc.</em></p><div class="clear">&nbsp;</div></div>', $editor);
+		} else {
+			printf('<p><a href="%s">Please set up postage settings on the paypal plugin options page</a>.</p>', admin_url('options-general.php?page=paypal_options'));
 		}
-		echo '<p><label for="paypal_stock">Stock: </label><input type="text" id="paypal_stock" name="paypal_stock" value="' . $paypal["stock"] . '" size="5" /></p></div><div class="clear">&nbsp;</div>';
-		/* short description - use wp-editor but capture output in a buffer */
-		ob_start();
-		/* options for editor */
-		$options = array(
-			"media_buttons" => false,
-			"textarea_name" => "paypal_description",
-			"textarea_rows" => 3,
-			"teeny" => true
-		);
-		/* "echo" the editor */
-		wp_editor($paypal["description"], "paypal_description", $options );
-		/* get the output buffer */
-		$editor = ob_get_contents();
-		/* clean the output buffer */
-		ob_clean();
-		printf('<p>Short Item Description:</p><div>%s</div><p><em>Include information such as dimensions, special ordering instructions, estimated delivery times, etc.</em></p><div class="clear">&nbsp;</div></div>', $editor);
 	}
 	
 	/**
@@ -2051,7 +2056,28 @@ class PayPalPlugin
 					printf('<tr><th scope="row">Name:</th><td>%s %s</td></tr>', $ipn["first_name"], $ipn["last_name"]);
 					printf('<tr><th scope="row">Email</th><td><a href="mailto:%s">%s</a></td></tr>', $ipn["payer_email"], $ipn["payer_email"]);
 					printf('<tr><th scope="row">Payment date:</th><td>%s</td></tr>', date("d/m/Y", $payment_details->payment_date));
+					printf('<tr><th scope="row">Address</th><td>%s<br />%s<br />%s<br />%s<br />%s<br />%s</td></tr>', $ipn["address_name"], $ipn["address_street"], $ipn["address_city"], $ipn["address_state"], $ipn["address_zip"], $ipn["address_country"]);
 					print('</table>');
+					$items = array();
+					$item_number = 1;
+					while(isset($ipn["item_name" . $item_number])) {
+						$items[] = array(
+							"name" => $ipn["item_name" . $item_number],
+							"number" => $ipn["item_number" . $item_number],
+							"url" => get_permalink($ipn["item_number" . $item_number]),
+							"price" => $ipn["mc_gross_" . $item_number],
+							"quantity" => $ipn["quantity" . $item_number]
+						);
+						$item_number++;
+					}
+					if (count($items)) {
+						print('<h3>Items in this order</h3>');
+						print('<table class="widefat"><thead><tr><th>Item</th><th>Quantity</th><th>Price</th></tr></thead><tbody>');
+						foreach ($items as $item) {
+							printf('<tr><td><a href="%s">%s</a></td><td>%s</td><td>&pound;%s</td></tr>', $item["url"], $item["name"], $item["quantity"], $item["price"]);
+						}
+						print('</tbody></table>');
+					}
 					print('<h3>Full IPN details</h3><table>');
 					foreach ($ipn as $key => $data) {
 						printf('<tr><th scope="row">%s</th><td>%s</td></tr>', $key, $data);
@@ -2059,18 +2085,14 @@ class PayPalPlugin
 					print('</table>');
 			}
 
-		} else {
-			$payments = $wpdb->get_results("SELECT * FROM $tablename ORDER BY `payment_date` DESC");
-			print('<h2>Paypal payments</h2><table summary="paypal payments" class="widefat"><thead><th>date</th><th>Name</th><th>email</th><th>items</th><th>amount</th><th>invoice sent</th><th>action</th></tr></thead><tbody>');
+		} elseif (isset($_REQUEST["action"]) && $_REQUEST["action"] = "report") {
+			/* report of sold items */
+			$payments = $wpdb->get_results("SELECT * FROM $tablename");
 			$allitems = array();
 			foreach ($payments as $payment) {
-				$ipn = json_decode($payment->payment_ipn);
-				$name = $ipn->first_name . " " . $ipn->last_name;
-				$email = $ipn->payer_email;
-				$invoice_sent = (intval($payment->invoice_sent) > 0)? date("d/m/Y", intval($payment->invoice_sent)): '-';
+				$ipn = unserialize($payment->payment_ipn);
 				$items = array();
 				$item_number = 1;
-				$item_name_prop = "item_name" . $item_number;
 				while(isset($ipn["item_name" . $item_number])) {
 					if (!isset($allitems[$ipn["item_name" . $item_number]])) {
 						$allitems[$ipn["item_name" . $item_number]] = 0;
@@ -2079,14 +2101,46 @@ class PayPalPlugin
 					$items[] = $ipn["item_name" . $item_number];
 					$item_number++;
 				}
-				printf('<tr><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top">%s</td><td valign="top"><strong>&pound;%s</strong></td><td>%s</td><td><a href="%s" class="button-primary">Send Invoice</a><a href="%s" target="pdf" class="button-secondary">View invoice</a><a href="%s" class="button-secondary">view details</a></td></tr>', date("d/m/Y", $payment->payment_date), $name, $email, implode("<br />", $items), $ipn->mc_gross, $invoice_sent, admin_url('tools.php?page=paypal_payments&amp;action=sendPDF&amp;ipn_id=' . $payment->ipn_id), admin_url('tools.php?page=paypal_payments&amp;action=viewPDF&amp;ipn_id=' . $payment->ipn_id), admin_url('tools.php?page=paypal_payments&amp;action=viewIPN&amp;ipn_id=' . $payment->ipn_id));
 			}
-			print('</tbody></table>');
 			print('<h2>Sales summary</h2><table summary="sales summary" class="widefat"><thead><th>item name</th><th>number sold</tr></thead><tbody>');
 			foreach ($allitems as $item_name => $count) {
 				printf('<tr><td>%s</td><td>%s</td></tr>', $item_name, $count);
 			}
 			print('</tbody></table>');
+		} else {
+			$per_page = isset($_REQUEST["spp_per_page"])? intval($_REQUEST["spp_per_page"]): 20;
+			$current_page = isset($_REQUEST["spp_page"])? intval($_REQUEST["spp_page"]): 1;
+			$filters = array("all", "sent", "unsent");
+			$filter = (isset($_REQUEST["spp_filter"]) && in_array($_REQUEST["spp_filter"], $filters))? $_REQUEST["filter"]: false;
+			$limit = " LIMIT " . (($current_page - 1) * $per_page) . ',' . $per_page;
+			$query = "SELECT * FROM $tablename ORDER BY `payment_date` DESC $limit";
+			$payments = $wpdb->get_results($query);
+			$allitems = array();
+			$rows = array();
+			$invoices_sent = 0;
+			$total = 0;
+			//echo '<pre>' . print_r($payments, true) . '</pre>';
+			foreach ($payments as $payment) {
+				$ipn = unserialize($payment->payment_ipn);
+				//print '<pre>' . print_r($ipn, true) . '</pre>';
+				$name = $ipn["first_name"]. " " . $ipn["last_name"];
+				$email = $ipn["payer_email"];
+				if (intval($payment->invoice_sent) > 0) {
+					$invoice_sent = date("d/m/Y", intval($payment->invoice_sent));
+					$invoices_sent++;
+				} else {
+					$invoice_sent = '-';
+				}
+				$rows[] = sprintf('<tr><td valign="top">%s</td><td valign="top">%s</td><td valign="top"><a href="mailto:%s">%s</a></td><td valign="top"><strong>&pound;%s</strong></td><td>%s</td><td><a href="%s" class="button-primary">Send Invoice</a></td><td><a href="%s" target="pdf" class="button-secondary">View invoice</a></td><td><a href="%s" class="button-secondary">view details</a></td></tr>', date("d/m/Y", $payment->payment_date), $name, $email, $email, $ipn["mc_gross"], $invoice_sent, admin_url('tools.php?page=paypal_payments&amp;action=sendPDF&amp;ipn_id=' . $payment->ipn_id), admin_url('tools.php?page=paypal_payments&amp;action=viewPDF&amp;ipn_id=' . $payment->ipn_id), admin_url('tools.php?page=paypal_payments&amp;action=viewIPN&amp;ipn_id=' . $payment->ipn_id));
+				$total += floatval($ipn["mc_gross"]);
+			}
+			$controls = '<div class="paypal-payments-controls">';
+
+			print('<h2>Paypal payments</h2>');
+
+			$headers = '<th>Date</th><th>Name</th><th>email</th><th>amount</th><th>invoice sent</th><th colspan="3">&nbsp;</th></tr>';
+			printf('<table summary="paypal payments" class="widefat"><thead>%s</thead><tfoot>%s</tfoot><tbody>%s</tbody></table>', $headers, $headers, implode('', $rows));
+			//print('<p>Total income: &pound' . self::dec2($total) . '</p>');
 		}
 	}
 
