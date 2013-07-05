@@ -169,33 +169,31 @@
 			}
 		})
 	}
-	var formfield = '';
-	var imagepreview = false;
 	$('.upload_image_button').click(function(e) {
-		formfield = $(this).attr("id").substr(4);
-		imagepreview = true;
+		var formfield = $(this).attr("id").substr(4);
 		tb_show('', 'media-upload.php?type=image&amp;TB_iframe=true');
 		e.preventDefault();
-		return false;
-	});
-	/* callback for media upload */
-	window.send_to_editor = function(html) {
-		imgurl = $('img',html).attr('src');
-		if (typeof(imgurl) === "undefined") {
-			imgurl = $(html).attr('src');
-		}
-		if (typeof(imgurl) !== "undefined") {
-			$('#'+formfield).val(imgurl);
-			if (imagepreview) {
+		/* callback for media upload */
+		window.old_send_to_editor = window.send_to_editor;
+		window.send_to_editor = function(html) {
+			imgurl = $('img',html).attr('src');
+			if (typeof(imgurl) === "undefined") {
+				imgurl = $(html).attr('src');
+			}
+			if (typeof(imgurl) !== "undefined") {
+				$('#'+formfield).val(imgurl);
 				if ($('#'+formfield+'_preview img').length) {
 					$('#'+formfield+'_preview img').attr("src", imgurl);
 				} else {
 					$('#'+formfield+'_preview').append('<img src="'+imgurl+'" />');
 				}
 			}
+			tb_remove();
+			window.send_to_editor = window.old_send_to_editor;
+			window.old_send_to_editor = null;
 		}
-		tb_remove();
-	}
+		return false;
+	});
 	$('.clear_media_button').click(function(){
 		$('#'+$(this).attr("rel")).val("");
 		$('#'+$(this).attr("rel")+'_preview img').remove();

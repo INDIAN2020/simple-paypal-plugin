@@ -69,3 +69,24 @@ License: GPL2
 #shipping-settings p input[type=text] {
 	float:left;
 }
+
+table.payment-details {
+	border-collapse:collapse;
+}
+table.payment-details th {
+	font-weight:bold;
+	text-align:right;
+	padding-right:10px;
+}
+table.payment-details td, table.payment-details th {
+	padding:5px;
+	vertical-align:top;
+	border-bottom:1px solid #eee;
+}
+table.item-details .price, table.item-details .total {
+	font-weight:bold;
+	text-align:right;
+}
+table.payment-details .total {
+	font-size:1.2em;
+}
