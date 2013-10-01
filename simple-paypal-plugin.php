@@ -3,7 +3,7 @@
 Plugin Name: Simple PayPal Plugin
 Plugin URI: http://p-2.biz/plugins/paypal
 Description: A plugin to enable PayPal purchases on a wordpress site
-Version: 1.0
+Version: 1.2
 Author: Peter Edwards <Peter.Edwards@p-2.biz>
 Author URI: http://p-2.biz
 License: GPL2
@@ -52,16 +52,11 @@ class SimplePayPalPlugin
 		register_activation_hook(__FILE__, array(__CLASS__, 'install'));
 		/* registers deactivation hook */
 		register_deactivation_hook(__FILE__, array(__CLASS__, 'uninstall'));
-		/* add settings link to plugin page */
-		add_filter('plugin_action_links', array(__CLASS__, 'add_settings_link'), 10, 2 );
 		
 		/* add meta boxes to posts */
 		add_action( 'add_meta_boxes', array(__CLASS__, 'add_custom_paypal_box') );
 		add_action( 'save_post', array(__CLASS__, 'save_custom_paypal_box') );
 
-		/* action any requests */
-		add_action( 'init', array(__CLASS__, 'process_requests') );
-		
 		/* SHORTCODES */
 		/* shortcode for link to basket */
 		add_shortcode("basket_link", array(__CLASS__, "get_basket_link"));
@@ -84,7 +79,7 @@ class SimplePayPalPlugin
 	{
 		global $wpdb;
 		$tablename = $wpdb->prefix . "payments";
-		$sql = "CREATE TABLE IF NOT EXISTS `" . $tablename . "` (`ipn_id` int(11) NOT NULL AUTO_INCREMENT, `payment_date` int(11) NOT NULL DEFAULT '0',`payment_ipn` text NOT NULL DEFAULT '', `invoice_sent` INT(11) NOT NULL DEFAULT '0') ENGINE=MyISAM DEFAULT CHARSET=utf8;";
+		$sql = "CREATE TABLE IF NOT EXISTS `" . $tablename . "` (`ipn_id` int(11) NOT NULL AUTO_INCREMENT, `payment_date` int(11) NOT NULL DEFAULT '0',`payment_ipn` text NOT NULL DEFAULT '', `invoice_sent` INT(11) NOT NULL DEFAULT '0', `txn_id` VARCHAR(255) NOT NULL DEFAULT '', `txn_type` VARCHAR(255)  NOT NULL DEFAULT '', `mc_gross` VARCHAR(255)  NOT NULL DEFAULT '') ENGINE=MyISAM DEFAULT CHARSET=utf8;";
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
 		$defaults = SimplePayPalPluginAdmin::get_paypal_options();
@@ -102,6 +97,7 @@ class SimplePayPalPlugin
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
 		delete_option('sppp_options');
+		delete_option('sppp_version');
 	}
 
 	/**
@@ -119,42 +115,67 @@ class SimplePayPalPlugin
 					$query = "ALTER TABLE `$tablename` ADD `invoice_sent` INT(11) NOT NULL DEFAULT '0';";
 					$wpdb->query($query); 
 					$query = "ALTER TABLE  `$tablename` ADD  `ipn_id` INT( 11 ) NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST ;";
-					$wpdb->query($query); 
-					/* re-serialize paypal IPNs as JSON */
-					/*$tablename = $wpdb->prefix . "payments";
-					$payments = $wpdb->get_results("SELECT * FROM $tablename ORDER BY `payment_date` DESC");
-					foreach ($payments as $payment) {
-						$stripn = preg_split('/"/', $payment->payment_ipn);
-						$newipn = array();
-						$i = 1;
-						while ($i < count($stripn)) {
-							$newipn[$stripn[$i]] = $stripn[($i+2)];
-							$i += 4;
-						}
-						$query = $wpdb->prepare("UPDATE $tablename SET `payment_ipn` = '%s' WHERE `ipn_id` = '%d';", json_encode($newipn), $payment->ipn_id);
-						$wpdb->query($query);
-					}*/
+					$wpdb->query($query);
 				case "1.0":
 					/* upgrade routine from version 1.0 to 1.1 */
+					$all_pages = get_posts(array(
+						"numberposts" => -1,
+						"nopaging" => true,
+						"post_type" => "any",
+						"post_status" => "publish"
+					));
+					if (count($all_pages)) {
+						foreach ($all_pages as $post) {
+							$linkmeta = get_post_meta($post->ID, "links", true);
+				    		delete_post_meta($post->ID, "links");
+				    		$media =& get_children('post_type=attachment&orderby=menu_order&order=ASC&post_parent=' . $post->ID);
+						    $files = array();
+						    if (is_array($media) && count($media)) {
+				        		foreach ($media as $id => $att) {
+				    	    		if (substr($att->post_mime_type, 0, 5) != "image") {
+				    		        	$files[] = $att;
+				    		        }
+				    	        }
+				            }
+				            $links = ($linkmeta && trim($linkmeta) != '')? explode("\n", $linkmeta): array();
+				            $paypal = self::get_paypal_meta($post->ID);
+				   			if (count($links) || count($files)) {
+				   				$paypal["description"] .= "<ul>";
+				   				if (count($links)) {
+					        		for ($i = 0; $i < count($links); $i++) {
+						               	if (substr($links[$i], 0, 4) == "http") {
+					    	           		$parts = explode(" ", $links[$i], 2);
+					    		    		$url = $parts[0];
+					    		            $text = (isset($parts[1]) && trim($parts[1]) != "")? trim($parts[1]): $url;
+							    			$paypal["description"] .= sprintf('<li><a href="%s" title="%s">%s</a></li>', htmlentities($url), $text, $text);
+					    				}
+				    	    		}
+						        }
+					        	if (count($files)) {
+				    	        	foreach ($files as $post) {
+				        	        	$paypal["description"] .= sprintf('<li><a href="%s" title="%s">%s</a></li>', get_permalink($post->ID), esc_attr($post->post_title), $post->post_title);
+				            	    }
+				            	}
+						    	$paypal["description"] .= "</ul>";
+				    		}
+				    	}
+				    }
+				case "1.1":
+					/* upgrade routine from 1.1 to 1.2 */
+					global $wpdb;
+					$tablename = $wpdb->prefix . "payments";
+					$query = "ALTER TABLE `$tablename` ADD `txn_id` VARCHAR(255) NOT NULL DEFAULT '';";
+					$wpdb->query($query); 
+					$query = "ALTER TABLE `$tablename` ADD  `txn_type` VARCHAR(255)  NOT NULL DEFAULT '';";
+					$wpdb->query($query);
+					$query = "ALTER TABLE `$tablename` ADD  `mc_gross` VARCHAR(255)  NOT NULL DEFAULT '';";
+					$wpdb->query($query);
+
 			}
 			update_option('sppp_version', SimplePayPalPluginAdmin::$plugin_version);
 		}
 	}
 
-	/**
-	 * adds a link to the plugin settings page from the plugins page
-	 */
-	public static function add_settings_link($links, $file)
-	{
-		$this_plugin = plugin_basename(__FILE__);
-		if ($file == $this_plugin) {
-			$settings_link = '<a href="' . admin_url("options-general.php?page=paypal_options") . '">Settings</a>';
-			array_unshift($links, $settings_link);
-		}
-		return $links;
-	}
-	
-		
 	/**
 	 * adds script to front end
 	 */
@@ -327,8 +348,8 @@ class SimplePayPalPlugin
 	{
 		if (isset($_REQUEST['pp-addcart'])) {
 			$in_basket = false;
-			if (isset($_SESSION['pp-cart'])) {  
-				$products = $_SESSION['pp-cart'];
+			if (isset($_SESSION['sppp-cart'])) {  
+				$products = $_SESSION['sppp-cart'];
 			} else {
 				$products = array();
 			}
@@ -356,7 +377,7 @@ class SimplePayPalPlugin
 						array_push($products, $item);
 					}
 					sort($products);
-					$_SESSION['pp-cart'] = $products;
+					$_SESSION['sppp-cart'] = $products;
 				}
 			}
 		}
@@ -379,8 +400,8 @@ class SimplePayPalPlugin
 		/* make sure we are responding to the correct event */
 		if (isset($_REQUEST['pp-cquantity'])) {
 			/* get cart contents */
-			if (isset($_SESSION['pp-cart'])) {  
-				$products = $_SESSION['pp-cart'];
+			if (isset($_SESSION['sppp-cart'])) {  
+				$products = $_SESSION['sppp-cart'];
 			} else {
 				$products = array();
 			}
@@ -411,7 +432,7 @@ class SimplePayPalPlugin
 									array_push($products, $product);
 								}
 								sort($products);
-								$_SESSION['pp-cart'] = $products;
+								$_SESSION['sppp-cart'] = $products;
 							}
 						}
 					}
@@ -442,8 +463,8 @@ class SimplePayPalPlugin
 			return;
 		}
 		/* get cart contents */
-		if (isset($_SESSION['pp-cart'])) {  
-			$products = $_SESSION['pp-cart'];
+		if (isset($_SESSION['sppp-cart'])) {  
+			$products = $_SESSION['sppp-cart'];
 		} else {
 			$products = array();
 		}
@@ -452,7 +473,7 @@ class SimplePayPalPlugin
 				if ($item['product_page_id'] == $page_id) {
 					unset($products[$key]);
 					sort($products);
-					$_SESSION['pp-cart'] = $products;
+					$_SESSION['sppp-cart'] = $products;
 					return;
 				}
 			}
@@ -464,11 +485,11 @@ class SimplePayPalPlugin
 	 */
 	public static function reset_cart()
 	{
-		$products = $_SESSION['pp-cart'];
+		$products = $_SESSION['sppp-cart'];
 		foreach ($products as $key => $item) {
 			unset($products[$key]);
 		}
-		$_SESSION['pp-cart'] = $products;
+		$_SESSION['sppp-cart'] = $products;
 	}
 
 	/**
@@ -634,12 +655,12 @@ class SimplePayPalPlugin
 		$masterForm = '';
 		$total_vat = 0;
 		$total_ex_vat = 0;
-		if (isset($_SESSION['pp-cart']) && is_array($_SESSION['pp-cart']) && count($_SESSION['pp-cart'])) {   
+		if (isset($_SESSION['sppp-cart']) && is_array($_SESSION['sppp-cart']) && count($_SESSION['sppp-cart'])) {   
 			$out .= "  <table class=\"cart\">\n";	
 			$out .= "	<tr><th width=\"5%\"></th><th width=\"60%\" style=\"text-align:left\">item</th><th width=\"15%\" style=\"text-align:right\">quantity</th><th width=\"20%\" style=\"text-align:right\">price</th></tr>\n";
 			$item_price_ex_vat = array();
 			$item_has_more_stock = array();
-  			foreach ($_SESSION['pp-cart'] as $item) {
+  			foreach ($_SESSION['sppp-cart'] as $item) {
 				$paypal = self::get_paypal_meta($item["product_page_id"]);
 				/* make sure we have stock of this item */
 				if (intval($paypal["stock"]) < $item["quantity"]) {
@@ -677,12 +698,12 @@ class SimplePayPalPlugin
 				$total_ex_vat += $item_price_ex_vat["p" . $item["product_page_id"]];
 			}
 			/* if the cart has been emptied due to a decrease in stock level... */
-			if (!count($_SESSION['pp-cart'])) {
+			if (!count($_SESSION['sppp-cart'])) {
 				return "  <p>Your basket is empty.</p>\n";
 			}
 			$count = 1;
 			/* oputput the basket table and build the paypal form */
-			foreach ($_SESSION['pp-cart'] as $item) {
+			foreach ($_SESSION['sppp-cart'] as $item) {
 				$out .= "	<tr>";
 				/* remove button */
 				$out .= sprintf("<td style=\"text-align:center\"><form method=\"post\" action=\"%s\"><input type=\"hidden\" name=\"pp-delcart\" value=\"1\" /><input type=\"hidden\" name=\"pp-product_page_id\" value=\"%s\" /><input type=\"submit\" class=\"pp-small-button pp-remove-button\" value=\"Remove\" title=\"Remove\" /></form></td>", $options["cart_url"], $item['product_page_id']);
@@ -938,7 +959,7 @@ class SimplePayPalPlugin
 			}
 			$paypal["stock"] = trim($_REQUEST['paypal_stock']);
 			$paypal["includes_vat"] = isset($_REQUEST["includes_vat"]);
-			add_post_meta($post_id, 'paypal', $paypal, true) or update_post_meta($post_id, 'paypal', $paypal);
+			add_post_meta($post_id, 'sppp', $paypal, true) or update_post_meta($post_id, 'sppp', $paypal);
 		}
 	}
 	
@@ -949,7 +970,7 @@ class SimplePayPalPlugin
 	{
 		global $post;
 		$paypal = self::get_paypal_meta($post->ID);
-		$paypal_options = SimplePayPalPluginAdmin::get_paypal_options();
+		$options = SimplePayPalPluginAdmin::get_paypal_options();
 		/* Use nonce for verification */
 		$methods = SimplePayPalPluginAdmin::get_shipping_methods();
 		if (isset($options["shipping_method"]) && in_array($options["shipping_method"], array_keys($methods))) {
@@ -959,7 +980,7 @@ class SimplePayPalPlugin
 			echo '<p><label for="paypal_code">Item code: </label><input type="text" id="paypal_code" name="paypal_code" value="' . $paypal["code"] . '" size="25" /></p>';
 			echo '<p><label for="paypal_price">Price: </label><input type="text" id="paypal_price" name="paypal_price" value="' . $paypal["price"] . '" size="5" /></p>';
 			$chckd = (isset($paypal["includes_vat"]) && $paypal["includes_vat"] == true)? ' checked="checked"': '';
-			echo '<p><input type="checkbox" id="includes_vat" name="includes_vat" value="1"' . $chckd . ' /><label for="includes_vat">Check this box if the price includes VAT (otherwise a zero rate of VAT is assumed)</label></p>';
+			echo '<p><label for="includes_vat" class="cbx"><input type="checkbox" id="includes_vat" name="includes_vat" value="1"' . $chckd . ' />Check this box if the price includes VAT (otherwise a zero rate of VAT is assumed)</label></p>';
 			echo '</div>';
 			/* right column */
 			echo '<div class="right-column">';
@@ -999,7 +1020,7 @@ class SimplePayPalPlugin
 			ob_clean();
 			printf('<p>Short Item Description:</p><div>%s</div><p><em>Include information such as dimensions, special ordering instructions, estimated delivery times, etc.</em></p><div class="clear">&nbsp;</div></div>', $editor);
 		} else {
-			printf('<p><a href="%s">Please set up postage settings on the paypal plugin options page</a>.</p>', admin_url('options-general.php?page=paypal_options'));
+			printf('<p><a href="%s">Please set up postage settings on the paypal plugin options page</a>.</p>', admin_url('admin.php?page=sppp-options'));
 		}
 	}
 	
@@ -1021,7 +1042,7 @@ class SimplePayPalPlugin
 			"stock" => "",
 			"includes_vat" => true
 		);
-		$post_meta = get_post_meta($page_ID, "paypal", true);
+		$post_meta = get_post_meta($page_ID, "sppp", true);
 		if ($post_meta) {
 			return wp_parse_args($post_meta, $default_meta);
 		} else {
@@ -1139,8 +1160,12 @@ class SimplePayPalPlugin
 			}
 			/* store IPN in database */
 			global $wpdb;
+			$txn_id = isset($ipn_data["txn_id"])? $ipn_data["txn_id"]: '';
+			$txn_type = isset($ipn_data["txn_type"])? $ipn_data["txn_type"]: '';
+			$mc_gross = isset($ipn_data["mc_gross"])? $ipn_data["mc_gross"]: '';
+
 			$tablename = $wpdb->prefix . "payments";
-			$wpdb->insert($tablename, array("payment_date" => time(), "payment_ipn" => serialize($ipn_data)));
+			$wpdb->insert($tablename, array("payment_date" => time(), "payment_ipn" => serialize($ipn_data), "txn_id" => $txn_id, "txn_type" => $txn_type, "mc_gross" => $mc_gross));
 
 		}
 		if (is_email($options["paypal_ipn_email"])) {

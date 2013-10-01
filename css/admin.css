@@ -24,6 +24,14 @@ License: GPL2
 	width:30%;
 	text-align:right;
 	padding:0 2.5%;}
+.paypal-options label.cbx {
+	width:100%;
+	text-align:left;
+}
+.paypal-options label.cbx input {
+	float:left;
+	margin:0 1em 0 0;
+}
 .paypal-options input {
 	float:left;}
 

@@ -2,7 +2,7 @@
 /**
  * Simple Paypal Plugin Administration
  * Plugin URI: http://p-2.biz/plugins/paypal
- * @version: 1.0
+ * @version: 1.2
  * @author: Peter Edwards <Peter.Edwards@p-2.biz>
  * @license: GPL2
 */
@@ -30,7 +30,7 @@
 class SimplePayPalPluginAdmin
 {
 	/* plugin version */
-	public static $plugin_version = "1.0";
+	public static $plugin_version = "1.2";
 
 	/* paypal URLs */
 	public static $paypal_url = 'https://www.paypal.com/cgi-bin/webscr';
@@ -42,6 +42,8 @@ class SimplePayPalPluginAdmin
 		if ( is_admin() ){
 			add_action( 'admin_menu', array(__CLASS__, 'add_paypal_admin_menus') );
 			add_action( 'admin_init', array(__CLASS__, 'register_paypal_options') );
+			/* add settings link to plugin page */
+			add_filter('plugin_action_links', array(__CLASS__, 'add_settings_link'), 10, 2 );
 			/* add scripts and CSS to back end */
 			add_action( 'admin_enqueue_scripts', array(__CLASS__, "enqueue_scripts"));
 			/* register query variables */
@@ -62,14 +64,29 @@ class SimplePayPalPluginAdmin
 	}
 
 	/**
+	 * adds a link to the plugin settings page from the plugins page
+	 */
+	public static function add_settings_link($links, $file)
+	{
+		$this_plugin = str_replace('-admin.php', '.php', plugin_basename(__FILE__));
+		if ($file == $this_plugin) {
+			$payments_link = '<a href="' . admin_url("admin.php?page=sppp-payments") . '">Payments</a>';
+			array_unshift($links, $payments_link);
+			$settings_link = '<a href="' . admin_url("admin.php?page=sppp-options") . '">Settings</a>';
+			array_unshift($links, $settings_link);
+		}
+		return $links;
+	}
+	
+	/**
 	 * add the paypal menu and its submenus
 	 */
 	public static function add_paypal_admin_menus()
 	{
-        add_menu_page("Paypal", "Paypal", "edit_posts", "paypal-plugin.php", array(__CLASS__, 'paypal_options_page'), plugins_url('/img/paypal-menu-icon.png', __FILE__), 200);
-		add_submenu_page("paypal-plugin.php", "Paypal", "Paypal Options", "edit_plugins", "paypal-plugin.php", array(__CLASS__, "paypal_options_page"));
+        add_menu_page("Paypal", "Paypal", "edit_posts", "sppp-options", array(__CLASS__, 'paypal_options_page'), plugins_url('/img/paypal-menu-icon.png', __FILE__), 200);
+		add_submenu_page("sppp-options", "Paypal", "Paypal Options", "edit_plugins", "sppp-options", array(__CLASS__, "paypal_options_page"));
 		/* add payments page */
-		add_submenu_page("paypal-plugin.php", "Paypal Payments", "Paypal payments", "edit_plugins", "paypal-payments", array(__CLASS__, "paypal_payments_page"));
+		add_submenu_page("sppp-options", "Paypal Payments", "Paypal payments", "edit_plugins", "sppp-payments", array(__CLASS__, "paypal_payments_page"));
 	}
 
 	/**
