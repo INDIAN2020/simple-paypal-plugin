@@ -1,26 +1,9 @@
 <?php
-/**
- * Simple Paypal Plugin Administration
- * Plugin URI: http://p-2.biz/plugins/paypal
- * @version: 1.2
- * @author: Peter Edwards <Peter.Edwards@p-2.biz>
- * @license: GPL2
-*/
-
-/*  Copyright 2011  Peter Edwards  (email : Peter.Edwards@p-2.biz)
-
-	This program is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License, version 2, as 
-	published by the Free Software Foundation.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program; if not, write to the Free Software
-	Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+/*
+Plugin Name: Simple PayPal Plugin
+Plugin URI: https://github.com/p-2/simple-paypal-plugin
+Author: Peter Edwards <Peter.Edwards@p-2.biz>
+License: MIT
 */
 
 /**************************
@@ -30,7 +13,7 @@
 class SimplePayPalPluginAdmin
 {
 	/* plugin version */
-	public static $plugin_version = "1.2";
+	public static $plugin_version = "0.0.1";
 
 	/* paypal URLs */
 	public static $paypal_url = 'https://www.paypal.com/cgi-bin/webscr';

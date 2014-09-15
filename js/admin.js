@@ -1,9 +1,14 @@
+/*
+Plugin Name: Simple PayPal Plugin
+Plugin URI: https://github.com/p-2/simple-paypal-plugin
+Author: Peter Edwards <Peter.Edwards@p-2.biz>
+License: MIT
+*/
+
 /**
- * javascript used in admin backend
- * @version 1.0
- * @author Peter Edwards <Peter.Edwards@p-2.biz>
- * @uses jQuery
+ * javascript for admin backend
  */
+
 ;(function($){
 	var log2console = function(msg) {
 		if (window.console && window.console.log) {

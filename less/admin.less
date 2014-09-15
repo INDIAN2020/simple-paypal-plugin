@@ -1,0 +1,114 @@
+/*
+Plugin Name: Simple PayPal Plugin
+Plugin URI: https://github.com/p-2/simple-paypal-plugin
+Author: Peter Edwards <Peter.Edwards@p-2.biz>
+License: MIT
+*/
+
+/**
+ * styles for admin pages
+ */
+ 
+.left-column {
+	float:left;
+	width:60%;}
+.right-column {
+	float:right;
+	width:39%;}
+/* paypal options */
+.paypal-options {
+	p {
+		clear:both;
+		padding:0.5em 0;
+	}
+	label {
+		float:left;
+		width:30%;
+		text-align:right;
+		padding:0 2.5%;
+
+		&.cbx {
+			width:100%;
+			text-align:left;
+			input {
+				float:left;
+				margin:0 1em 0 0;
+			}
+		}
+	}
+	input {
+		float:left;
+	}
+}
+#shipping-settings {
+	fieldset {
+		border:1px solid #ccc;
+		margin-bottom:1em;
+		-webkit-border-radius:5px;
+		-khtml-border-radius:5px;
+		-moz-border-radius:5px;
+		border-radius:5px;
+		padding:5px;
+		clear:both;
+		background-color:#eee;
+	    background-image: -moz-linear-gradient(top, #e8e8e8, #efefef);
+	    background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#e8e8e8), to(#efefef));
+	    background-image: -webkit-linear-gradient(top, #e8e8e8, #efefef);
+	    background-image: -o-linear-gradient(top, #e8e8e8, #efefef);
+	    background-image: linear-gradient(to bottom, #e8e8e8, #efefef);
+	    background-repeat: repeat-x;
+	    filter:"progid:DXImageTransform.Microsoft.gradient(startColorstr='#E8E8E8', endColorstr='#EFEFEF', GradientType=0)";
+		
+		fieldset {
+			margin-bottom:0;
+		}
+		legend {
+			font-style:italic;
+		}
+
+		p {
+			clear:both;
+			padding:3px 0;
+			
+			label {
+				float:left;
+				width:30%;
+				margin-right:3%;
+				text-align:right;
+				&.wide {
+					width:100%;
+					text-align:left;
+					float:left;
+				}
+			}
+			input[type=text] {
+				float:left;
+			}
+		}
+	}
+}
+
+table.payment-details {
+	border-collapse:collapse;
+
+	th {
+		font-weight:bold;
+		text-align:right;
+		padding-right:10px;
+	}
+	td, th {
+		padding:5px;
+		vertical-align:top;
+		border-bottom:1px solid #eee;
+	}
+	.total {
+		font-size:1.2em;
+	}
+}
+table.item-details {
+	.price,
+	.total {
+		font-weight:bold;
+		text-align:right;
+	}
+}

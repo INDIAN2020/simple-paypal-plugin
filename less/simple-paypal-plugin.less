@@ -1,0 +1,102 @@
+/*
+Plugin Name: PayPal Plugin
+Plugin URI: http://p-2.biz/plugins/paypal
+Description: A plugin to enable PayPal purchases on a wordpress site
+Version: 0.9
+Author: Peter Edwards <Peter.Edwards@p-2.biz>
+Author URI: http://p-2.biz
+License: GPL2
+*/
+
+@import "spritesheet-postmodular.less";
+
+/* styles for front-end */
+table.cart {
+
+	width:70%;
+	td {
+		padding:3px 4px;
+		border-collapse:collapse;
+		border-top:1px solid #f60;
+
+		.subtotal &, .total &, &subtotal {
+			font-weight:bold;
+			text-align:right;
+		}
+	}
+}
+.paypal-price {
+	font-weight:bold;
+	width:70%;
+	float:left;
+}
+.pp-add-form {
+	width:29%;
+	float:left;
+}
+p.stocklevel {
+	clear:both;
+	.num {
+  		font-weight:bold;
+	}
+}
+
+/* buttons */
+.pp-button, .pp-small-button {
+	text-indent:100000px;
+	border:0;
+	margin:2px 5px 0 5px;
+}
+.pp-button {
+	width:25px;
+	height:25px;
+}
+.pp-small-button {
+	width:14px;
+	height:14px;
+}
+
+.pp-no-stock-button {
+	.sprite(@query-out);
+}
+.pp-no-stock-button:hover {
+	.sprite(@query-over);
+}
+.pp-add-button {
+	.sprite(@add-out);
+}
+.pp-add-button:hover {
+	.sprite(@add-over);
+}
+.pp-basket-button,
+.pp-checkout-button:hover {
+	.sprite(@basket-out);
+}
+.pp-basket-button:hover,
+.pp-checkout-button:hover {
+	.sprite(@basket-over);
+}
+.pp-decrease-button {
+	.sprite(@minus-out);
+}
+.pp-decrease-button:hover {
+	.sprite(@minus-over);
+}
+.pp-decrease-button-disabled {
+	.sprite(@minus-disabled);
+}
+.pp-increase-button {
+	.sprite(@plus-out);
+}
+.pp-increase-button:hover {
+	.sprite(@plus-over);
+}
+.pp-increase-button-disabled {
+	.sprite(@plus-disabled);
+}
+.pp-remove-button {
+	.sprite(@remove-out);
+}
+.pp-remove-button:hover {
+	.sprite(@remove-over);
+}

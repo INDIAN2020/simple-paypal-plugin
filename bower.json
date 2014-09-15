@@ -1,0 +1,30 @@
+{
+  "name": "simple-paypal-plugin",
+  "version": "0.0.1",
+  "homepage": "https://github.com/p-2/simple-paypal-plugin",
+  "authors": [
+    "Peter Edwards <Peter.Edwards@p-2.biz>"
+  ],
+  "description": "A plugin to enable PayPal purchases on a wordpress site",
+  "main": "simple-paypal-plugin.php",
+  "moduleType": [
+    "node"
+  ],
+  "keywords": [
+    "paypal",
+    "wordpress"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "jquery-modal": "kylefox/jquery-modal#~0.5.2",
+    "jquery": "jquery/jquery#~2.1.1",
+    "p2_media_image_select": "bjorsq/p2_media_image_select"
+  }
+}

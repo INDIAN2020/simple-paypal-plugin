@@ -1,0 +1,186 @@
+/*
+LESS variables are information about icon's compiled state, stored under its original file name
+
+.icon-home {
+  width: @icon-home-width;
+}
+
+The large array-like variables contain all information about a single icon
+@icon-home: x y offset_x offset_y width height total_width total_height image_path;
+*/
+@add-out-x: 78px;
+@add-out-y: 50px;
+@add-out-offset-x: -78px;
+@add-out-offset-y: -50px;
+@add-out-width: 26px;
+@add-out-height: 24px;
+@add-out-total-width: 104px;
+@add-out-total-height: 101px;
+@add-out-image: '../img/spritesheet-default.png';
+@add-out: 78px 50px -78px -50px 26px 24px 104px 101px '../img/spritesheet-default.png';
+@add-over-x: 78px;
+@add-over-y: 26px;
+@add-over-offset-x: -78px;
+@add-over-offset-y: -26px;
+@add-over-width: 26px;
+@add-over-height: 24px;
+@add-over-total-width: 104px;
+@add-over-total-height: 101px;
+@add-over-image: '../img/spritesheet-default.png';
+@add-over: 78px 26px -78px -26px 26px 24px 104px 101px '../img/spritesheet-default.png';
+@basket-out-x: 26px;
+@basket-out-y: 78px;
+@basket-out-offset-x: -26px;
+@basket-out-offset-y: -78px;
+@basket-out-width: 26px;
+@basket-out-height: 23px;
+@basket-out-total-width: 104px;
+@basket-out-total-height: 101px;
+@basket-out-image: '../img/spritesheet-default.png';
+@basket-out: 26px 78px -26px -78px 26px 23px 104px 101px '../img/spritesheet-default.png';
+@basket-over-x: 0px;
+@basket-over-y: 78px;
+@basket-over-offset-x: 0px;
+@basket-over-offset-y: -78px;
+@basket-over-width: 26px;
+@basket-over-height: 23px;
+@basket-over-total-width: 104px;
+@basket-over-total-height: 101px;
+@basket-over-image: '../img/spritesheet-default.png';
+@basket-over: 0px 78px 0px -78px 26px 23px 104px 101px '../img/spritesheet-default.png';
+@minus-disabled-x: 52px;
+@minus-disabled-y: 0px;
+@minus-disabled-offset-x: -52px;
+@minus-disabled-offset-y: 0px;
+@minus-disabled-width: 26px;
+@minus-disabled-height: 26px;
+@minus-disabled-total-width: 104px;
+@minus-disabled-total-height: 101px;
+@minus-disabled-image: '../img/spritesheet-default.png';
+@minus-disabled: 52px 0px -52px 0px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@minus-out-x: 52px;
+@minus-out-y: 26px;
+@minus-out-offset-x: -52px;
+@minus-out-offset-y: -26px;
+@minus-out-width: 26px;
+@minus-out-height: 26px;
+@minus-out-total-width: 104px;
+@minus-out-total-height: 101px;
+@minus-out-image: '../img/spritesheet-default.png';
+@minus-out: 52px 26px -52px -26px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@minus-over-x: 0px;
+@minus-over-y: 52px;
+@minus-over-offset-x: 0px;
+@minus-over-offset-y: -52px;
+@minus-over-width: 26px;
+@minus-over-height: 26px;
+@minus-over-total-width: 104px;
+@minus-over-total-height: 101px;
+@minus-over-image: '../img/spritesheet-default.png';
+@minus-over: 0px 52px 0px -52px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@plus-disabled-x: 0px;
+@plus-disabled-y: 0px;
+@plus-disabled-offset-x: 0px;
+@plus-disabled-offset-y: 0px;
+@plus-disabled-width: 26px;
+@plus-disabled-height: 26px;
+@plus-disabled-total-width: 104px;
+@plus-disabled-total-height: 101px;
+@plus-disabled-image: '../img/spritesheet-default.png';
+@plus-disabled: 0px 0px 0px 0px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@plus-out-x: 52px;
+@plus-out-y: 52px;
+@plus-out-offset-x: -52px;
+@plus-out-offset-y: -52px;
+@plus-out-width: 26px;
+@plus-out-height: 26px;
+@plus-out-total-width: 104px;
+@plus-out-total-height: 101px;
+@plus-out-image: '../img/spritesheet-default.png';
+@plus-out: 52px 52px -52px -52px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@plus-over-x: 78px;
+@plus-over-y: 0px;
+@plus-over-offset-x: -78px;
+@plus-over-offset-y: 0px;
+@plus-over-width: 26px;
+@plus-over-height: 26px;
+@plus-over-total-width: 104px;
+@plus-over-total-height: 101px;
+@plus-over-image: '../img/spritesheet-default.png';
+@plus-over: 78px 0px -78px 0px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@query-out-x: 26px;
+@query-out-y: 52px;
+@query-out-offset-x: -26px;
+@query-out-offset-y: -52px;
+@query-out-width: 26px;
+@query-out-height: 26px;
+@query-out-total-width: 104px;
+@query-out-total-height: 101px;
+@query-out-image: '../img/spritesheet-default.png';
+@query-out: 26px 52px -26px -52px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@query-over-x: 26px;
+@query-over-y: 26px;
+@query-over-offset-x: -26px;
+@query-over-offset-y: -26px;
+@query-over-width: 26px;
+@query-over-height: 26px;
+@query-over-total-width: 104px;
+@query-over-total-height: 101px;
+@query-over-image: '../img/spritesheet-default.png';
+@query-over: 26px 26px -26px -26px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@remove-out-x: 0px;
+@remove-out-y: 26px;
+@remove-out-offset-x: 0px;
+@remove-out-offset-y: -26px;
+@remove-out-width: 26px;
+@remove-out-height: 26px;
+@remove-out-total-width: 104px;
+@remove-out-total-height: 101px;
+@remove-out-image: '../img/spritesheet-default.png';
+@remove-out: 0px 26px 0px -26px 26px 26px 104px 101px '../img/spritesheet-default.png';
+@remove-over-x: 26px;
+@remove-over-y: 0px;
+@remove-over-offset-x: -26px;
+@remove-over-offset-y: 0px;
+@remove-over-width: 26px;
+@remove-over-height: 26px;
+@remove-over-total-width: 104px;
+@remove-over-total-height: 101px;
+@remove-over-image: '../img/spritesheet-default.png';
+@remove-over: 26px 0px -26px 0px 26px 26px 104px 101px '../img/spritesheet-default.png';
+
+/*
+The provided classes are intended to be used with the array-like variables
+
+.icon-home {
+  .sprite-width(@icon-home);
+}
+.icon-email {
+  .sprite(@icon-email);
+}
+*/
+.sprite-width(@sprite) {
+  width: ~`"@{sprite}".split(', ')[4]`;
+}
+
+.sprite-height(@sprite) {
+  height: ~`"@{sprite}".split(', ')[5]`;
+}
+
+.sprite-position(@sprite) {
+  @sprite-offset-x: ~`"@{sprite}".split(', ')[2]`;
+  @sprite-offset-y: ~`"@{sprite}".split(', ')[3]`;
+  background-position: @sprite-offset-x  @sprite-offset-y;
+}
+
+.sprite-image(@sprite) {
+  @sprite-image: ~`"@{sprite}".split(', ')[8].slice(1, -2)`;
+  background-image: url(@sprite-image);
+}
+
+.sprite(@sprite) {
+  .sprite-image(@sprite);
+  .sprite-position(@sprite);
+  .sprite-width(@sprite);
+  .sprite-height(@sprite);
+}

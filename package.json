@@ -1,0 +1,35 @@
+{
+  "name": "simple-paypal-plugin",
+  "plugin_name": "Simple PayPal Plugin",
+  "version": "0.0.1",
+  "description": "Wordpress plugin to provide a simple paypal basket and shipping system",
+  "text_domain": "sppp",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:p-2/simple-paypal-plugin.git"
+  },
+  "author": "Peter Edwards",
+  "author_email": "Peter.Edwards@p-2.biz",
+  "authoruri": "http://p-2.biz",
+  "license": "MIT",
+  "licenseuri": "http://opensource.org/licenses/MIT",
+  "bugs": {
+    "url": "https://github.com/p-2/simple-paypal-plugin/issues"
+  },
+  "homepage": "https://github.com/p-2/simple-paypal-plugin",
+  "devDependencies": {
+    "grunt": "~0.4.2",
+	"grunt-contrib-concat": "*",
+	"grunt-contrib-jshint": "*",
+	"grunt-contrib-uglify": "*",
+	"grunt-banner": "*",
+    "grunt-contrib-less": "*",
+    "grunt-spritesmith": "*",
+    "grunt-contrib-imagemin": "*",
+    "grunt-contrib-watch": "*",
+    "grunt-pot": "*",
+    "grunt-po2mo": "*",
+    "grunt-checktextdomain": "*",
+	"grunt-contrib-watch": "*"
+  }
+}
